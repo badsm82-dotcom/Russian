@@ -75,7 +75,7 @@ const attemptBody = z
     client_attempt_id: z.string().uuid(),
     exercise_id: z.string().uuid(),
     step_index: z.number().int().min(0),
-    answer: z.object({ choice_id: z.string().max(100).optional(), text: z.string().max(500).optional() }).strict(),
+    answer: z.object({ choice_id: z.string().max(100).optional(), text: z.string().max(500).optional(), dont_know: z.boolean().optional() }).strict(),
     assisted: z.boolean().default(false),
     abandoned: z.boolean().default(false),
     duration_ms: z.number().int().min(0).max(3_600_000),
@@ -401,6 +401,13 @@ export function registerSessions(app: FastifyInstance, ctx: AppContext): void {
         grade = null;
         feedback = audioUnavailable ? 'Audio indisponible : exercice passé, sans effet sur ta progression.' : 'Exercice interrompu : ce n’est pas un échec.';
         errorCodes = audioUnavailable ? ['audio_unavailable'] : [];
+      } else if (body.answer.dont_know) {
+        // « Je ne sais pas » : échec honnête (grade 0), la réponse est montrée pour apprendre.
+        outcome = 'incorrect';
+        grade = 0;
+        feedback = 'Pas de souci : voici la réponse, elle reviendra bientôt.';
+        errorCodes = ['dont_know'];
+        expected = expectedOf(ex);
       } else {
         const g = gradeAnswer(ex, body.answer, {
           assisted,
@@ -434,7 +441,9 @@ export function registerSessions(app: FastifyInstance, ctx: AppContext): void {
         // Remédiation dans la même séance, quelques étapes plus loin (« revoir dans 10 minutes »).
         const already = steps.slice(body.step_index + 1).some((x) => x.kind === 'exercise' && x.item_id === ex.item_id && x.purpose === 'remediation');
         if (!already) {
-          const target = ctx.content.exerciseBySlug.get(ex.easier_exercise_slug ?? '') ?? ex;
+          // Variante plus simple seulement si tous ses prérequis sont déjà enseignés (AC20), sinon le même exercice.
+          const easier = ctx.content.exerciseBySlug.get(ex.easier_exercise_slug ?? '');
+          const target = easier && isExerciseAvailable(easier, taught) ? easier : ex;
           const rem: StoredStep = {
             kind: 'exercise', exercise_slug: target.slug, exercise_id: target.id, exercise_version: target.version,
             item_id: target.item_id, competency: target.competency, purpose: 'remediation',

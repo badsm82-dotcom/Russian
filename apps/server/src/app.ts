@@ -51,22 +51,17 @@ export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {})
     });
   }
 
+  const root = ctx.config.webDist ? resolve(ctx.config.webDist) : null;
+  const serveWeb = !!root && existsSync(root);
+  if (serveWeb) {
+    const fastifyStatic = (await import('@fastify/static')).default;
+    await app.register(fastifyStatic, { root: root!, wildcard: false });
+  }
   app.setNotFoundHandler((req, reply) => {
     if (req.url.startsWith('/v1/')) return reply.code(404).send({ error: { code: 'not_found', message: 'Route inconnue', details: null } });
+    // Application monopage : toute route non-API renvoie index.html.
+    if (serveWeb) return reply.sendFile('index.html');
     return reply.code(404).send('Not found');
   });
-
-  if (ctx.config.webDist) {
-    const root = resolve(ctx.config.webDist);
-    if (existsSync(root)) {
-      const fastifyStatic = (await import('@fastify/static')).default;
-      await app.register(fastifyStatic, { root, wildcard: false });
-      // Application monopage : toute route non-API renvoie index.html.
-      app.setNotFoundHandler((req, reply) => {
-        if (req.url.startsWith('/v1/')) return reply.code(404).send({ error: { code: 'not_found', message: 'Route inconnue', details: null } });
-        return reply.sendFile('index.html');
-      });
-    }
-  }
   return app;
 }

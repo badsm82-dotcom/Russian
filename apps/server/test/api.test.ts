@@ -290,3 +290,14 @@ describe('Divers', () => {
     expect((await c.post('/v1/sessions', { minutes: 5 })).body.session.steps.length).toBeGreaterThan(0);
   });
 });
+
+describe('Remédiation (§6, AC20)', () => {
+  it('l’étape de remédiation ajoutée après un échec n’exige jamais un élément non présenté', async () => {
+    const c = api(env, await register(env));
+    const s = (await c.post('/v1/sessions', { minutes: 35 })).body.session;
+    // Échouer tous les exercices : chaque remédiation ajoutée doit rester jouable.
+    const { session } = await playSession(env, c, s.id, (ex) => wrongAnswer(ex));
+    expect(session.cursor).toBe(session.steps.length);
+    expect(session.steps.some((x: any) => x.purpose === 'remediation')).toBe(true);
+  });
+});

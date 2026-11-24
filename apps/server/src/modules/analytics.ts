@@ -39,6 +39,7 @@ const ERROR_LABELS_FR: Record<string, string> = {
   case: 'majuscule/minuscule',
   yo_missing: 'ё attendu',
   latin_script: 'saisie en lettres latines',
+  dont_know: '« je ne sais pas »',
 };
 
 function toHistory(a: AttemptRow): HistoryAttempt {
