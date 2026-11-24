@@ -271,6 +271,25 @@ describe('Passerelles (F14)', () => {
   });
 });
 
+describe('Objectifs (§4, §12)', () => {
+  it('semaine, objectifs hebdomadaires, bilans datés, date de départ réglable', async () => {
+    const c = api(env, await register(env));
+    const g0 = (await c.get('/v1/goals')).body;
+    expect(g0).toMatchObject({ week: 1, weeks_total: 52, pace: { status: 'not_started' } });
+    expect(g0.this_week.target_minutes).toBe(35 * 6);
+    expect(g0.checkpoints.map((x: any) => x.id)).toEqual(['alphabet', 'M1', 'M3', 'M6', 'M9', 'M12']);
+    const s = (await c.post('/v1/sessions', { minutes: 15 })).body.session;
+    await playSession(env, c, s.id);
+    const g1 = (await c.get('/v1/goals')).body;
+    expect(g1.this_week.done_days).toBe(1);
+    expect(g1.this_week.done_minutes).toBeGreaterThan(0);
+    await c.patch('/v1/profile', { settings: { goal_start_date: '2026-10-01' } });
+    const g2 = (await c.get('/v1/goals')).body;
+    expect(g2.start_date).toBe('2026-10-01');
+    expect(g2.week).toBeGreaterThan(5);
+  });
+});
+
 describe('Divers', () => {
   it('dictionnaire : forme fléchie → lemme, accent, formes, licence', async () => {
     const c = api(env, await register(env));

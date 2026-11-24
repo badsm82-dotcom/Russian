@@ -27,6 +27,7 @@ const settingsPatch = z
     bridges_enabled: z.boolean(),
     audio_rate: z.union([z.literal(0.75), z.literal(0.9), z.literal(1), z.literal(1.15)]),
     manual_difficulty: z.enum(['auto', 'easier', 'harder']),
+    goal_start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   })
   .partial()
   .strict();

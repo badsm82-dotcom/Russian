@@ -21,6 +21,8 @@ import { LEXEMES, type LexemeDef } from './lexicon.js';
 import { ITEM_EMOJI, ITEM_TABLES, LATIN_LOOKALIKE, letterClass, type CardTable, type LetterClass } from './visuals.js';
 
 export const CONTENT_VERSION = 1;
+/** Le contenu disponible couvre les mois 1 à CONTENT_MONTHS_AVAILABLE du parcours (§4). */
+export const CONTENT_MONTHS_AVAILABLE = 1;
 /** Contenu rédigé mais non relu par un russophone : à valider avant mise en production (§17). */
 export const DEFAULT_STATUS: ContentStatus = 'pending_review';
 

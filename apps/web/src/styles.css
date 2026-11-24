@@ -280,3 +280,16 @@ summary { cursor: pointer; }
 .tiny-muted { font-size: 0.72rem; color: var(--muted); }
 .big-word-sm { font-size: 1.8rem; margin: 0; }
 .dict-entry p { margin: 0.3rem 0; }
+.goal-pace { font-weight: 600; }
+.goal-bar { margin: 0.4rem 0; }
+.goal-bar-label { display: flex; justify-content: space-between; }
+.goal-bar .unit-progress { max-width: none; height: 8px; }
+.checkpoints, .months { list-style: none; padding: 0; }
+.checkpoints li { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0.5rem 0; }
+.cp-dot { flex: 0 0 1.5rem; height: 1.5rem; border-radius: 50%; display: grid; place-items: center; font-size: 0.8rem; font-weight: 700; border: 2px solid var(--border); }
+.cp-done .cp-dot { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.cp-due .cp-dot { background: var(--ko-bg); border-color: var(--ko); color: var(--ko); }
+.months li { border-left: 4px solid var(--border); padding: 0.3rem 0 0.3rem 0.7rem; margin: 0.4rem 0; }
+.months li.month-current { border-left-color: var(--primary); background: var(--info-bg); border-radius: 0 8px 8px 0; }
+.months li.month-past { border-left-color: var(--ok); opacity: 0.8; }
+.month-head { display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }

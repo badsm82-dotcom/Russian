@@ -81,6 +81,8 @@ export interface LearnerSettings {
   bridges_enabled: boolean;
   audio_rate: 0.75 | 0.9 | 1 | 1.15;
   manual_difficulty: 'auto' | 'easier' | 'harder';
+  /** Jour de départ du programme de 52 semaines (AAAA-MM-JJ) ; par défaut, la date de création du compte. */
+  goal_start_date?: string | null;
 }
 
 export const DEFAULT_INTERESTS = [

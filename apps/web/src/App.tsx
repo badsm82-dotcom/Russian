@@ -12,6 +12,7 @@ function errorText(e: unknown): string {
 }
 import { SessionPlayer } from './Session';
 import { DictionaryScreen } from './Dictionary';
+import { GoalCard, GoalPlan, useGoals } from './Goals';
 import { LatinTrap, LetterBadge, RuWord } from './visual';
 import { speakRu } from './speech';
 
@@ -223,7 +224,7 @@ function Onboarding({ profile, onDone }: { profile: any; onDone: () => Promise<v
   );
 }
 
-const SETTING_KEYS = ['daily_minutes', 'days_per_week', 'preferred_time', 'timezone', 'interests', 'personal_context_enabled', 'microphone_consent', 'transliteration', 'show_stress_marks', 'correction_timing', 'font_scale', 'theme', 'notifications_enabled', 'bridges_enabled', 'audio_rate', 'manual_difficulty'];
+const SETTING_KEYS = ['daily_minutes', 'days_per_week', 'preferred_time', 'timezone', 'interests', 'personal_context_enabled', 'microphone_consent', 'transliteration', 'show_stress_marks', 'correction_timing', 'font_scale', 'theme', 'notifications_enabled', 'bridges_enabled', 'audio_rate', 'manual_difficulty', 'goal_start_date'];
 /** Nettoie les réglages avant envoi (champs vides, heure avec secondes, bornes). */
 function pick(s: any) {
   const out: any = Object.fromEntries(SETTING_KEYS.filter((k) => k in s).map((k) => [k, s[k]]));
@@ -232,6 +233,7 @@ function pick(s: any) {
   out.preferred_time = typeof out.preferred_time === 'string' && /^\d{2}:\d{2}/.test(out.preferred_time) ? out.preferred_time.slice(0, 5) : null;
   out.timezone = typeof out.timezone === 'string' && out.timezone.trim() ? out.timezone.trim() : 'Europe/Zurich';
   out.font_scale = Math.min(1.8, Math.max(0.8, Number(out.font_scale) || 1));
+  if ('goal_start_date' in out && !/^\d{4}-\d{2}-\d{2}$/.test(String(out.goal_start_date ?? ''))) out.goal_start_date = null;
   if (Array.isArray(out.interests)) out.interests = out.interests.map((t: string) => t.trim().slice(0, 60)).filter(Boolean).slice(0, 30);
   return out;
 }
@@ -246,6 +248,7 @@ function Home({ profile, onStart }: { profile: any; onStart: (id: string) => voi
   const [homeError, setHomeError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   const [prepared, setPrepared] = useState(false);
+  const goals = useGoals();
   useEffect(() => {
     api
       .get('/v1/sessions/current')
@@ -322,6 +325,7 @@ function Home({ profile, onStart }: { profile: any; onStart: (id: string) => voi
         {homeError && <p className="warn" role="alert">{homeError}</p>}
         {analytics && <p className="small muted">{analytics.next_action_fr}</p>}
       </section>
+      <GoalCard g={goals} />
       {unit && (
         <section className="card">
           <p className="eyebrow">Unité en cours · {unit.id}</p>
@@ -447,6 +451,7 @@ const DOMAIN_FR: Record<string, string> = {
 
 function StatsScreen() {
   const [a, setA] = useState<any>(null);
+  const goals = useGoals();
   useEffect(() => {
     api.get('/v1/analytics').then(setA);
   }, []);
@@ -454,6 +459,7 @@ function StatsScreen() {
   const pct = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)} %`);
   return (
     <div className="stack">
+      <GoalPlan g={goals} />
       <section className="card">
         <h2>Action suivante</h2>
         <p>{a.next_action_fr}</p>
@@ -572,6 +578,13 @@ function SettingsScreen({ profile, onChange, onLogout }: { profile: any; onChang
             <select className="input" value={s.theme} onChange={(e) => set('theme', e.target.value)}><option value="system">Système</option><option value="light">Clair</option><option value="dark">Sombre</option></select>
           </label>
           <label className="block">Fuseau horaire<input className="input" value={s.timezone} onChange={(e) => set('timezone', e.target.value)} /></label>
+          <label className="block">Début de mon programme de 12 mois
+            <input className="input" type="date" value={s.goal_start_date ?? ''} onChange={(e) => set('goal_start_date', e.target.value || null)} />
+            <span className="small muted">Vide = date de création du compte.</span>
+          </label>
+          <label className="block">Jours de pratique par semaine
+            <input className="input" type="number" min={1} max={7} value={s.days_per_week} onChange={(e) => set('days_per_week', Number(e.target.value))} />
+          </label>
         </div>
         <label className="check"><input type="checkbox" checked={s.show_stress_marks} onChange={(e) => set('show_stress_marks', e.target.checked)} /> Afficher l’accent tonique pédagogique (´)</label>
         <label className="check"><input type="checkbox" checked={s.bridges_enabled} onChange={(e) => set('bridges_enabled', e.target.checked)} /> Proposer des comparaisons avec mes langues</label>
