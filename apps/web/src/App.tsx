@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { api, apiUrl, ApiError, auth, flushPendingAttempts } from './api';
+import { api, apiUrl, ApiError, auth } from './api';
+import { cachedSession, cacheSession, clearLocal, currentCachedSessionId, flushOps, isNetworkError, kvGet, kvSet } from './offline';
 
 /** Message d'erreur lisible, avec le détail de validation renvoyé par le serveur. */
 function errorText(e: unknown): string {
@@ -237,19 +238,55 @@ function Home({ profile, onStart }: { profile: any; onStart: (id: string) => voi
   const [curriculum, setCurriculum] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [homeError, setHomeError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
+  const [prepared, setPrepared] = useState(false);
   useEffect(() => {
-    api.get('/v1/sessions/current').then((r) => setCurrent(r.session));
-    api.get('/v1/analytics').then(setAnalytics);
-    api.get('/v1/curriculum').then(setCurriculum);
+    api
+      .get('/v1/sessions/current')
+      .then((r) => {
+        setCurrent(r.session);
+        if (r.session) cacheSession(r.session).then(() => setPrepared(true)).catch(() => undefined);
+      })
+      .catch(async (e) => {
+        if (!isNetworkError(e)) return;
+        setOffline(true);
+        // Hors ligne : proposer la séance enregistrée sur l'appareil, s'il y en a une.
+        const id = await currentCachedSessionId();
+        const c = id ? await cachedSession(id) : undefined;
+        if (c) setCurrent(c.session);
+      });
+    api.get('/v1/analytics').then(setAnalytics).catch(() => undefined);
+    api.get('/v1/curriculum').then(setCurriculum).catch(() => undefined);
   }, []);
+  /** Crée la séance et l'enregistre sur l'appareil, sans l'ouvrir (pour le métro, l'avion…). */
+  const prepareOffline = async () => {
+    setBusy(true);
+    setHomeError(null);
+    try {
+      const r = await api.post('/v1/sessions', { minutes });
+      await cacheSession(r.session);
+      setCurrent(r.session);
+      setPrepared(true);
+    } catch (e) {
+      setHomeError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
   const unit = curriculum?.units.find((u: any) => u.current);
   return (
     <div className="grid">
       <section className="card hero">
         <h2>Ta séance du jour</h2>
+        {offline && (
+          <p className="info small" role="status">
+            📴 Hors ligne. {current ? 'Ta séance enregistrée sur l’appareil peut continuer ; tout sera envoyé au retour du réseau.' : 'Aucune séance n’est enregistrée sur l’appareil : reconnecte-toi pour en commencer une.'}
+          </p>
+        )}
         {current ? (
           <>
             <p>Une séance est en cours ({current.cursor}/{current.steps.length}). Tu reprends exactement où tu t’es arrêté·e.</p>
+            {prepared && !offline && <p className="small muted">✓ Disponible hors ligne sur cet appareil.</p>}
             <div className="actions">
               <button type="button" className="btn btn-primary btn-large" onClick={() => onStart(current.id)}>Reprendre ma séance</button>
               <button type="button" className="btn btn-ghost" disabled={busy} onClick={async () => { setBusy(true); try { const r = await api.post('/v1/sessions', { minutes, replace: true }); onStart(r.session.id); } catch (e) { setHomeError(errorText(e)); } finally { setBusy(false); } }}>
@@ -270,6 +307,9 @@ function Home({ profile, onStart }: { profile: any; onStart: (id: string) => voi
             </fieldset>
             <button type="button" className="btn btn-primary btn-large" disabled={busy} onClick={async () => { setBusy(true); try { const r = await api.post('/v1/sessions', { minutes }); onStart(r.session.id); } catch (e) { setHomeError(errorText(e)); } finally { setBusy(false); } }}>
               Commencer ma séance
+            </button>
+            <button type="button" className="btn btn-ghost" disabled={busy || offline} onClick={prepareOffline}>
+              📥 Préparer pour hors ligne
             </button>
           </>
         )}
@@ -535,13 +575,13 @@ function SettingsScreen({ profile, onChange, onLogout }: { profile: any; onChang
         <div className="actions">
           <button type="button" className="btn" onClick={() => download('json')}>Exporter (JSON)</button>
           <button type="button" className="btn" onClick={() => download('csv')}>Exporter mes réponses (CSV)</button>
-          <button type="button" className="btn btn-ghost" onClick={async () => { await api.post('/v1/auth/logout'); auth.set(null); onLogout(); }}>Se déconnecter</button>
+          <button type="button" className="btn btn-ghost" onClick={async () => { await flushOps().catch(() => undefined); await api.post('/v1/auth/logout').catch(() => undefined); await clearLocal(); auth.set(null); onLogout(); }}>Se déconnecter</button>
         </div>
         <details>
           <summary>Supprimer mon compte</summary>
           <p className="small">Suppression définitive de toutes tes données. Tape <strong>SUPPRIMER</strong> pour confirmer.</p>
           <input className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-label="Confirmation" />
-          <button type="button" className="btn btn-danger" disabled={confirm !== 'SUPPRIMER'} onClick={async () => { try { await api.del('/v1/account', { confirm }); auth.set(null); onLogout(); } catch (e) { setSaveError(errorText(e)); } }}>
+          <button type="button" className="btn btn-danger" disabled={confirm !== 'SUPPRIMER'} onClick={async () => { try { await api.del('/v1/account', { confirm }); await clearLocal(); auth.set(null); onLogout(); } catch (e) { setSaveError(errorText(e)); } }}>
             Supprimer définitivement
           </button>
         </details>
@@ -564,20 +604,27 @@ export function App() {
       .then((p) => {
         setProfile(p);
         applyTheme(p.settings.theme, p.settings.font_scale);
+        kvSet('profile', p).catch(() => undefined);
       })
-      .catch((e) => {
-        if (!auth.token) setAuthed(false);
-        else setError(e.message);
+      .then(() => undefined)
+      .catch(async (e) => {
+        if (!auth.token) return setAuthed(false);
+        // Hors ligne : profil enregistré lors de la dernière connexion.
+        const cached = isNetworkError(e) ? await kvGet<any>('profile') : undefined;
+        if (cached) {
+          setProfile(cached);
+          applyTheme(cached.settings.theme, cached.settings.font_scale);
+        } else setError(e.message);
       });
 
   useEffect(() => {
     if (authed) {
       loadProfile();
-      flushPendingAttempts().catch(() => undefined);
+      flushOps().catch(() => undefined);
     }
   }, [authed]);
   useEffect(() => {
-    const h = () => flushPendingAttempts().catch(() => undefined);
+    const h = () => flushOps().catch(() => undefined);
     window.addEventListener('online', h);
     return () => window.removeEventListener('online', h);
   }, []);

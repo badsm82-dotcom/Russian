@@ -320,6 +320,19 @@ export function registerSessions(app: FastifyInstance, ctx: AppContext): void {
     });
   });
 
+  /**
+   * Paquet hors ligne : définitions complètes des exercices de la séance, pour corriger sur l'appareil sans réseau.
+   * Le serveur recorrige chaque réponse à la synchronisation et reste la seule référence.
+   * (À ne jamais servir en mode examen, qui n'existe pas encore.)
+   */
+  app.get<{ Params: { id: string } }>('/v1/sessions/:id/offline-pack', async (req) => {
+    const userId = requireUser(req);
+    const s = await getSessionRow(ctx.db, userId, req.params.id);
+    if (s.mode === 'exam') throw conflict('exam_mode', 'Pas de correction hors ligne en mode examen.');
+    const ids = new Set(s.steps.filter((x) => x.kind === 'exercise').map((x) => x.exercise_id ?? ''));
+    return { session_id: s.id, exercises: [...ids].map((id) => ctx.content.exerciseById.get(id)).filter(Boolean) };
+  });
+
   /** Indice : la réponse de cette étape sera comptée comme assistée, quoi que déclare le client. */
   app.post<{ Params: { id: string; index: string } }>('/v1/sessions/:id/steps/:index/hint', async (req) => {
     const userId = requireUser(req);
@@ -438,7 +451,8 @@ export function registerSessions(app: FastifyInstance, ctx: AppContext): void {
       let steps = s.steps;
       let remediationAdded = false;
       if (outcome !== 'unscorable' && body.step_index === s.cursor) cursor = s.cursor + 1;
-      if (outcome === 'incorrect' && step.purpose !== 'remediation') {
+      // Hors ligne, le client rejoue ses étapes avec les index de sa copie : pas d'insertion qui décalerait la suite.
+      if (outcome === 'incorrect' && step.purpose !== 'remediation' && body.mode !== 'offline') {
         // Remédiation dans la même séance, quelques étapes plus loin (« revoir dans 10 minutes »).
         const already = steps.slice(body.step_index + 1).some((x) => x.kind === 'exercise' && x.item_id === ex.item_id && x.purpose === 'remediation');
         if (!already) {

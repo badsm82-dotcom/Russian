@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, ApiError, sendAttempt, uuid } from './api';
+import { api, ApiError, sendAttempt, uuid, type AttemptPayload } from './api';
+import { cachedSession, cacheSession, enqueue, flushOps, gradeOffline, isNetworkError, updateCachedCursor } from './offline';
 import { CyrillicKeyboard } from './Keyboard';
 import { ruVoiceAvailable, speakRu, stripStress } from './speech';
 
@@ -37,7 +38,11 @@ function BridgePanel({ conceptId, context, sessionId, stepIndex }: { conceptId: 
   const [feedback, setFeedback] = useState<boolean | null>(null);
   const load = async (o: number) => {
     const q = new URLSearchParams({ context, offset: String(o), session_id: sessionId, step_index: String(stepIndex) });
-    setState(await api.get(`/v1/concepts/${encodeURIComponent(conceptId)}/bridges?${q}`));
+    try {
+      setState(await api.get(`/v1/concepts/${encodeURIComponent(conceptId)}/bridges?${q}`));
+    } catch {
+      setState({ bridge: null, has_more: false, message_fr: 'Comparaisons indisponibles hors ligne.' });
+    }
     setOffset(o);
     setFeedback(null);
   };
@@ -154,7 +159,15 @@ function SpeakCard({ step, session, onDone }: { step: Step; session: Session; on
 
 const KB_HELP_KEY = 'r365.kbHelpSeen';
 
-function ExerciseCard({ step, session, onAnswered, onNext }: { step: Step; session: Session; onAnswered: (r: any) => void; onNext: () => void }) {
+interface OfflineHooks {
+  /** Définition complète de l'exercice (paquet hors ligne), si disponible. */
+  exercise: (id: string) => any | undefined;
+  /** Enregistre une tentative à envoyer plus tard. */
+  queue: (payload: AttemptPayload) => Promise<void>;
+  goOffline: () => void;
+}
+
+function ExerciseCard({ step, session, onAnswered, onNext, offline }: { step: Step; session: Session; onAnswered: (r: any) => void; onNext: () => void; offline: OfflineHooks }) {
   const ex = step.exercise;
   const s = session.settings;
   const [text, setText] = useState('');
@@ -184,17 +197,34 @@ function ExerciseCard({ step, session, onAnswered, onNext }: { step: Step; sessi
   async function submit(answer: any, extra: Partial<{ mode: 'audio_unavailable'; abandoned: boolean }> = {}) {
     setBusy(true);
     setError(null);
+    const payload: AttemptPayload = {
+      client_attempt_id: uuid(),
+      exercise_id: ex.id,
+      step_index: step.index,
+      answer,
+      assisted: hint !== null,
+      duration_ms: Date.now() - started.current,
+      occurred_at: new Date().toISOString(),
+      ...extra,
+    };
     try {
-      const r = await sendAttempt(session.id, {
-        client_attempt_id: uuid(),
-        exercise_id: ex.id,
-        step_index: step.index,
-        answer,
-        assisted: hint !== null,
-        duration_ms: Date.now() - started.current,
-        occurred_at: new Date().toISOString(),
-        ...extra,
-      });
+      let r: any;
+      try {
+        r = await sendAttempt(session.id, payload);
+      } catch (e) {
+        if (!isNetworkError(e)) throw e;
+        // Hors ligne : correction provisoire sur l'appareil, envoi plus tard (le serveur recorrigera).
+        const def = offline.exercise(ex.id);
+        if (!def) throw new ApiError(0, 'network', 'Hors ligne et exercice non disponible sur l’appareil : réessaie avec du réseau.');
+        offline.goOffline();
+        if (extra.abandoned || extra.mode === 'audio_unavailable') {
+          r = { outcome: 'abandoned', feedback_fr: 'Exercice passé.' };
+        } else {
+          const g = gradeOffline(def, answer, hint !== null, payload.duration_ms);
+          r = { ...g, explanation_fr: g.outcome === 'incorrect' ? def.explanation_fr ?? null : null, offline: true };
+        }
+        if (r.outcome !== 'unscorable') await offline.queue({ ...payload, mode: extra.mode ?? 'offline' });
+      }
       if (r.outcome === 'unscorable') {
         setError(r.feedback_fr);
         return;
@@ -203,7 +233,7 @@ function ExerciseCard({ step, session, onAnswered, onNext }: { step: Step; sessi
       onAnswered(r);
       if (r.outcome === 'abandoned') onNext();
     } catch (e) {
-      setError(e instanceof ApiError && e.status === 0 ? 'Hors ligne : ta réponse est gardée et sera envoyée à la reconnexion.' : (e as Error).message);
+      setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -293,7 +323,13 @@ function ExerciseCard({ step, session, onAnswered, onNext }: { step: Step; sessi
       {!result && (
         <div className="row secondary-actions">
           {!hint && ex.hints?.length > 0 && (
-            <button type="button" className="btn btn-ghost btn-small" onClick={async () => setHint((await api.post(`/v1/sessions/${session.id}/steps/${step.index}/hint`)).hint_fr)}>
+            <button type="button" className="btn btn-ghost btn-small" onClick={async () => {
+              try {
+                setHint((await api.post(`/v1/sessions/${session.id}/steps/${step.index}/hint`)).hint_fr);
+              } catch {
+                setHint(ex.hints?.[0] ?? 'Relis la fiche de présentation.'); // hors ligne : la réponse sera envoyée « avec aide »
+              }
+            }}>
               Indice
             </button>
           )}
@@ -307,6 +343,7 @@ function ExerciseCard({ step, session, onAnswered, onNext }: { step: Step; sessi
       {result && (
         <div className={`feedback ${result.accepted ? 'ok' : 'ko'}`} role="status" aria-live="polite">
           <p className="feedback-title">{result.accepted ? '✓ ' : '✗ '}{result.feedback_fr}</p>
+          {result.offline && <p className="small muted">Correction provisoire hors ligne : elle sera confirmée par le serveur au retour du réseau.</p>}
           {!result.accepted && result.expected && (
             <p>
               Réponse attendue : <strong className={/[а-яё]/i.test(result.expected) ? 'ru' : ''}>{result.expected}</strong>
@@ -337,17 +374,57 @@ export function SessionPlayer({ sessionId, onExit }: { sessionId: string; onExit
   const [view, setView] = useState(0);
   const [summary, setSummary] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
+  const pack = useRef<Record<string, any>>({});
+  const tally = useRef({ attempts: 0, scored: 0, correct_autonomous: 0, correct_assisted: 0, incorrect: 0, active_seconds: 0 });
 
+  const loadCache = async () => {
+    const c = await cachedSession(sessionId);
+    if (!c) throw new Error('Hors ligne, et cette séance n’est pas enregistrée sur l’appareil.');
+    pack.current = c.exercises;
+    setSession(c.session);
+    setOffline(true);
+    return c.session;
+  };
   const reload = async () => {
-    const r = await api.get(`/v1/sessions/${sessionId}`);
-    setSession(r.session);
-    return r.session;
+    try {
+      await flushOps(); // d'abord envoyer ce qui a été fait hors ligne
+      const r = await api.get(`/v1/sessions/${sessionId}`);
+      setSession(r.session);
+      setOffline(false);
+      cacheSession(r.session)
+        .then(() => cachedSession(sessionId))
+        .then((c) => { if (c) pack.current = c.exercises; })
+        .catch(() => undefined);
+      return r.session;
+    } catch (e) {
+      if (!isNetworkError(e)) throw e;
+      return loadCache();
+    }
   };
   useEffect(() => {
     reload()
       .then((s) => setView(s.cursor))
       .catch((e) => setError(e.message));
+    const back = () => reload().catch(() => undefined);
+    window.addEventListener('online', back);
+    return () => window.removeEventListener('online', back);
   }, [sessionId]);
+
+  const offlineHooks: OfflineHooks = {
+    exercise: (id) => pack.current[id],
+    queue: (payload) => enqueue({ kind: 'attempt', session_id: sessionId, payload }),
+    goOffline: () => setOffline(true),
+  };
+  const onAnswered = (r: any) => {
+    if (!r.offline) return;
+    const t = tally.current;
+    t.attempts++;
+    if (r.outcome === 'correct' || r.outcome === 'incorrect') t.scored++;
+    if (r.grade >= 2) t.correct_autonomous++;
+    else if (r.grade === 1) t.correct_assisted++;
+    else if (r.outcome === 'incorrect') t.incorrect++;
+  };
 
   const total = session?.steps.length ?? 0;
   const progress = useMemo(() => (total ? Math.round((Math.min(view, total) / total) * 100) : 0), [view, total]);
@@ -358,7 +435,11 @@ export function SessionPlayer({ sessionId, onExit }: { sessionId: string; onExit
     api
       .post(`/v1/sessions/${sessionId}/complete`)
       .then((r) => setSummary(r.summary))
-      .catch((e) => setError(e.message));
+      .catch(async (e) => {
+        if (!isNetworkError(e)) return setError(e.message);
+        await enqueue({ kind: 'complete', session_id: sessionId });
+        setSummary({ ...tally.current, offline: true });
+      });
   }, [ended, summary, sessionId]);
 
   if (error) return <p className="warn">{error}</p>;
@@ -369,6 +450,7 @@ export function SessionPlayer({ sessionId, onExit }: { sessionId: string; onExit
     return (
       <section className="card">
         <h2>Séance terminée 🎉</h2>
+        {summary.offline && <p className="info small">Faite hors ligne : le bilan ci-dessous ne compte que les réponses de cette fois-ci. Tout sera envoyé et recorrigé au retour du réseau.</p>}
         <ul className="stats-list">
           <li><strong>{summary.correct_autonomous}</strong> réussites sans aide</li>
           <li><strong>{summary.correct_assisted}</strong> réussites avec aide</li>
@@ -386,14 +468,34 @@ export function SessionPlayer({ sessionId, onExit }: { sessionId: string; onExit
   }
 
   const step = session.steps[view];
+  const advanceLocally = async (to: number) => {
+    setSession((s: Session) => ({ ...s, cursor: Math.max(s.cursor, to) }));
+    await updateCachedCursor(sessionId, to);
+    setView(to);
+  };
   const ack = async () => {
-    await api.post(`/v1/sessions/${sessionId}/steps/${step.index}/ack`);
-    const s = await reload();
-    setView(s.cursor);
+    if (!offline) {
+      try {
+        await api.post(`/v1/sessions/${sessionId}/steps/${step.index}/ack`);
+        const s = await reload();
+        setView(s.cursor);
+        return;
+      } catch (e) {
+        if (!isNetworkError(e)) throw e;
+        setOffline(true);
+      }
+    }
+    await enqueue({ kind: 'ack', session_id: sessionId, index: step.index });
+    await advanceLocally(step.index + 1);
   };
   const next = async () => {
-    const s = await reload();
-    setView(Math.max(view + 1, s.cursor));
+    if (offline) return advanceLocally(view + 1);
+    try {
+      const s = await reload();
+      setView(Math.max(view + 1, s.cursor));
+    } catch {
+      await advanceLocally(view + 1);
+    }
   };
 
   return (
@@ -408,6 +510,11 @@ export function SessionPlayer({ sessionId, onExit }: { sessionId: string; onExit
           Interrompre (reprise possible)
         </button>
       </div>
+      {offline && (
+        <div className="info small" role="status">
+          📴 Hors ligne : tes réponses sont corrigées sur l’appareil et seront envoyées dès le retour du réseau.
+        </div>
+      )}
       {view === 0 && session.explanations.length > 0 && (
         <div className="info small">
           {session.explanations.map((e: any) => (
@@ -417,7 +524,7 @@ export function SessionPlayer({ sessionId, onExit }: { sessionId: string; onExit
       )}
       {step.kind === 'teach' && <TeachCard key={step.index} step={step} session={session} onDone={ack} />}
       {step.kind === 'speak' && <SpeakCard key={step.index} step={step} session={session} onDone={ack} />}
-      {step.kind === 'exercise' && <ExerciseCard key={step.index} step={step} session={session} onAnswered={() => undefined} onNext={next} />}
+      {step.kind === 'exercise' && <ExerciseCard key={step.index} step={step} session={session} onAnswered={onAnswered} onNext={next} offline={offlineHooks} />}
       {step.kind === 'unavailable' && (
         <div className="card">
           <p>Exercice retiré du contenu.</p>

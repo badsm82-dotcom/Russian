@@ -111,9 +111,9 @@ export interface AttemptPayload {
   mode?: 'standard' | 'audio_unavailable' | 'offline';
 }
 
-/** Envoie une tentative ; en cas de coupure réseau, la conserve et la renvoie plus tard (même identifiant). */
+/** Envoie une tentative (quelques réessais en cas de coupure brève) ; une coupure durable est gérée par le mode hors ligne. */
 export async function sendAttempt(sessionId: string, p: AttemptPayload): Promise<any> {
-  const delays = [0, 800, 2000, 4000];
+  const delays = [0, 800, 2000];
   let lastErr: unknown;
   for (const d of delays) {
     if (d) await new Promise((r) => setTimeout(r, d));
@@ -124,24 +124,5 @@ export async function sendAttempt(sessionId: string, p: AttemptPayload): Promise
       if (!(e instanceof ApiError) || e.status !== 0) throw e;
     }
   }
-  const pending = JSON.parse(storageGet(PENDING_KEY) ?? '[]') as { sessionId: string; p: AttemptPayload }[];
-  pending.push({ sessionId, p: { ...p, mode: 'offline' } });
-  storageSet(PENDING_KEY, JSON.stringify(pending));
   throw lastErr;
-}
-
-export async function flushPendingAttempts(): Promise<number> {
-  const pending = JSON.parse(storageGet(PENDING_KEY) ?? '[]') as { sessionId: string; p: AttemptPayload }[];
-  const left: typeof pending = [];
-  let sent = 0;
-  for (const it of pending) {
-    try {
-      await api.post(`/v1/sessions/${it.sessionId}/attempts`, it.p);
-      sent++;
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 0) left.push(it);
-    }
-  }
-  storageSet(PENDING_KEY, left.length ? JSON.stringify(left) : null);
-  return sent;
 }

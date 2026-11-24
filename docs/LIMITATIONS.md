@@ -24,8 +24,10 @@
 ## Fonctions non livrées (P2–P5)
 - Tuteur IA / jeux de rôle (F09), TTS/ASR serveur, lecteur et bibliothèque (F10), évaluations M1–M12 et mode examen (F11),
   outil d'administration du contenu, notifications. Les routes correspondantes répondent **501**.
-- Hors ligne : l'interface est mise en cache (service worker) et s'ouvre avec un réseau faible ; les tentatives non envoyées
-  sont gardées et renvoyées (même identifiant, sans doublon). **Une séance ne peut pas démarrer sans réseau** (pas de cache des leçons, IndexedDB prévu en P5).
+- Hors ligne : la séance en cours (ou « préparée pour hors ligne ») continue sans réseau, avec correction provisoire
+  sur l'appareil (IndexedDB) ; les réponses sont rejouées dans l'ordre au retour du réseau et recorrigées par le serveur.
+  **Une nouvelle séance ne peut pas être créée sans réseau** (la planification reste côté serveur) ; les comparaisons
+  linguistiques ne sont pas disponibles hors ligne. Les corrigés de la séance sont stockés sur l'appareil (pas de mode examen).
 - Pas de réinitialisation de mot de passe ni de vérification d'e-mail.
 - Pas de rappel quotidien (notifications) : utiliser un rappel du téléphone en attendant.
 
