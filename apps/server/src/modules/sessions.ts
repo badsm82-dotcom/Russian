@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 /**
  * SessionPlanner + ExerciseEngine + ReviewScheduler côté serveur (§6, §8, §9, §16).
  * - séance planifiée de façon déterministe, persistée avec un curseur (reprise, AC07) ;
@@ -269,9 +270,9 @@ export function registerSessions(app: FastifyInstance, ctx: AppContext): void {
       }
       const { plan, steps } = await buildPlan(tx, ctx, userId, minutes);
       const ins = await tx.query<SessionRow>(
-        `INSERT INTO sessions (user_id, planned_minutes, mode, unit_id, steps, explanations, started_at, last_activity_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$7) RETURNING *`,
-        [userId, minutes, body.mode, plan.unit_id, JSON.stringify(steps), JSON.stringify(plan.explanations), now],
+        `INSERT INTO sessions (id, user_id, planned_minutes, mode, unit_id, steps, explanations, started_at, last_activity_at)
+         VALUES ($8,$1,$2,$3,$4,$5,$6,$7,$7) RETURNING *`,
+        [userId, minutes, body.mode, plan.unit_id, JSON.stringify(steps), JSON.stringify(plan.explanations), now, randomUUID()],
       );
       await appendEvent(tx, userId, 'session.started', { session_id: ins.rows[0]!.id, minutes, new_items: plan.new_items, review_count: plan.review_count });
       return { row: ins.rows[0]!, resumed: false };
@@ -422,11 +423,11 @@ export function registerSessions(app: FastifyInstance, ctx: AppContext): void {
       }
       const inContext = !!ex.controlled_transfer || ex.competency === 'transfer';
       const ins = await tx.query<{ id: string }>(
-        `INSERT INTO attempts (user_id, client_attempt_id, session_id, step_index, exercise_id, exercise_version, item_id, competency, purpose, mode,
+        `INSERT INTO attempts (id, user_id, client_attempt_id, session_id, step_index, exercise_id, exercise_version, item_id, competency, purpose, mode,
            answer, outcome, grade, assisted, in_context, duration_ms, error_codes, feedback_fr, occurred_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
+         VALUES ($20,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
         [userId, body.client_attempt_id, s.id, body.step_index, ex.id, ex.version, itemUuid, ex.competency, step.purpose, body.mode,
-          JSON.stringify(body.answer), outcome, grade, assisted, inContext, body.duration_ms, errorCodes, feedback, occurredAt],
+          JSON.stringify(body.answer), outcome, grade, assisted, inContext, body.duration_ms, errorCodes, feedback, occurredAt, randomUUID()],
       );
       const attemptId = ins.rows[0]!.id;
       const { state, early, remediation } = await recomputeState(tx, ctx, userId, itemUuid, ex.item_id, ex.competency, profile.settings.timezone);

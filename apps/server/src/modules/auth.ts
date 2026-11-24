@@ -1,5 +1,5 @@
 /** Auth/Profile — inscription, connexion, jetons opaques (seul leur hachage est stocké). */
-import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -70,11 +70,12 @@ export function registerAuth(app: FastifyInstance, ctx: AppContext): void {
     const userId = await withTx(ctx.db, async (tx) => {
       const exists = await tx.query('SELECT 1 FROM users WHERE lower(email) = lower($1)', [body.email]);
       if (exists.rowCount) throw new ApiError(409, 'email_taken', 'Un compte existe déjà avec cette adresse.');
-      const u = await tx.query<{ id: string }>('INSERT INTO users (email, password_hash, locale, timezone) VALUES ($1,$2,$3,$4) RETURNING id', [
+      const u = await tx.query<{ id: string }>('INSERT INTO users (id, email, password_hash, locale, timezone) VALUES ($5,$1,$2,$3,$4) RETURNING id', [
         body.email,
         hash,
         'fr',
         settings.timezone,
+        randomUUID(),
       ]);
       const id = u.rows[0]!.id;
       // Profil A0 intégral : aucun acquis, évaluations nulles, pas de test de placement (§3, AC19).

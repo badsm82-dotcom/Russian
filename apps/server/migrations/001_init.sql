@@ -1,8 +1,9 @@
 -- Russian 365 — schéma initial (§15). UUID, clés étrangères, contraintes d'unicité, index de révision.
--- gen_random_uuid() est natif depuis PostgreSQL 13.
+-- Compatible PostgreSQL ≥ 9.6 (hébergement mutualisé) : les UUID sont générés par l'application,
+-- et les déclencheurs utilisent EXECUTE PROCEDURE (EXECUTE FUNCTION n'existe qu'à partir de PostgreSQL 11).
 
 CREATE TABLE users (
-  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id               uuid PRIMARY KEY,
   email            text NOT NULL,
   password_hash    text NOT NULL,
   locale           text NOT NULL DEFAULT 'fr',
@@ -83,7 +84,7 @@ CREATE TABLE language_bridges (
 
 -- Données apprenant
 CREATE TABLE sessions (
-  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id                uuid PRIMARY KEY,
   user_id           uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   planned_minutes   integer NOT NULL,
   mode              text NOT NULL DEFAULT 'standard',
@@ -110,7 +111,7 @@ CREATE TABLE taught_items (
 );
 
 CREATE TABLE attempts (
-  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id                 uuid PRIMARY KEY,
   user_id            uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   client_attempt_id  uuid NOT NULL,
   session_id         uuid REFERENCES sessions(id) ON DELETE SET NULL,
@@ -155,7 +156,7 @@ CREATE TABLE review_states (
 CREATE INDEX review_states_due_idx ON review_states (user_id, due_at);
 
 CREATE TABLE bridge_attempts (
-  id                     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id                     uuid PRIMARY KEY,
   user_id                uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   bridge_id              text NOT NULL,
   bridge_version         integer NOT NULL,
@@ -187,4 +188,4 @@ BEGIN
   RETURN OLD;
 END $$ LANGUAGE plpgsql;
 -- Les suppressions restent possibles (suppression de compte, droit à l'effacement) ; les mises à jour non.
-CREATE TRIGGER events_no_update BEFORE UPDATE ON events FOR EACH ROW EXECUTE FUNCTION events_append_only();
+CREATE TRIGGER events_no_update BEFORE UPDATE ON events FOR EACH ROW EXECUTE PROCEDURE events_append_only();

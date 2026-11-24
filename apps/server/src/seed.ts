@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 /**
  * Données de démonstration : migre, synchronise le contenu et crée un compte A0 vierge.
  * Le mot de passe de démo est fourni par DEMO_PASSWORD (aucun secret dans le dépôt).
@@ -25,7 +26,7 @@ try {
     if (exists.rowCount) console.log(`Compte de démonstration déjà présent : ${email}`);
     else {
       const s = defaultSettings();
-      const u = await db.query<{ id: string }>('INSERT INTO users (email, password_hash, timezone) VALUES ($1,$2,$3) RETURNING id', [email, await hashPassword(password), s.timezone]);
+      const u = await db.query<{ id: string }>('INSERT INTO users (id, email, password_hash, timezone) VALUES ($4,$1,$2,$3) RETURNING id', [email, await hashPassword(password), s.timezone, randomUUID()]);
       await db.query('INSERT INTO learner_profiles (user_id, languages, interests, daily_minutes, baseline, settings) VALUES ($1,$2,$3,$4,$5,$6)', [
         u.rows[0]!.id, JSON.stringify(defaultLanguageProfile()), JSON.stringify(s.interests), s.daily_minutes, JSON.stringify(a0Baseline()), JSON.stringify(s),
       ]);

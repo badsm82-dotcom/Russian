@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 /** Passerelles linguistiques (§2.3) : GET /concepts/{id}/bridges ; POST /bridges/{id}/feedback. */
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -63,8 +64,8 @@ export function registerBridges(app: FastifyInstance, ctx: AppContext): void {
         await markStepAssisted(tx, userId, q.session_id, q.step_index);
       }
       const r = await tx.query<{ id: string }>(
-        `INSERT INTO bridge_attempts (user_id, bridge_id, bridge_version, concept_id, context, session_id, shown_at) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-        [userId, chosen.id, chosen.version, chosen.concept_id, q.context, q.session_id ?? null, ctx.clock.now()],
+        `INSERT INTO bridge_attempts (id, user_id, bridge_id, bridge_version, concept_id, context, session_id, shown_at) VALUES ($8,$1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+        [userId, chosen.id, chosen.version, chosen.concept_id, q.context, q.session_id ?? null, ctx.clock.now(), randomUUID()],
       );
       await appendEvent(tx, userId, 'bridge.shown', { bridge_id: chosen.id, concept_id: chosen.concept_id, context: q.context });
       return r.rows[0]!.id;
