@@ -10,3 +10,4 @@ export * from './bridges.js';
 export * from './planner.js';
 export * from './alphabet.js';
 export * from './goals.js';
+export * from './assessment.js';

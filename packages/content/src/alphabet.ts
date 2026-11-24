@@ -114,3 +114,24 @@ export const TRANSFER_WORDS: Record<number, WordExample[]> = {
   5: [{ ru: 'маши́на', fr: 'voiture', pron: ['machina', 'mashina'] }, { ru: 'шокола́д', fr: 'chocolat', pron: ['chakalat', 'shokolad'] }, { ru: 'врач', fr: 'médecin', pron: ['vratch'] }, { ru: 'ко́шка', fr: 'chatte, chat', pron: ['kochka', 'koshka'] }],
   6: [{ ru: 'му́зыка', fr: 'musique', pron: ['mouzyka', 'muzyka'] }, { ru: 'семья́', fr: 'famille', pron: ['sémia', 'semya', 'simia', 'semia'] }, { ru: 'слова́рь', fr: 'dictionnaire', pron: ['slavar', 'slovar'] }, { ru: 'поэ́т', fr: 'poète', pron: ['paèt', 'poet', 'paet'] }],
 };
+
+/**
+ * Mots réservés aux bilans d'alphabet (§5, §12 « caractères/mots inédits ») : jamais utilisés dans les leçons
+ * ni les exercices, pour mesurer un vrai décodage. Translittération lettre à lettre acceptée (réduction non exigée).
+ */
+export const ASSESSMENT_WORDS: WordExample[] = [
+  { ru: 'стол', fr: 'table' }, { ru: 'нож', fr: 'couteau', pron: ['noch', 'nosh'] }, { ru: 'ры́ба', fr: 'poisson', pron: ['ryba'] },
+  { ru: 'кни́га', fr: 'livre' }, { ru: 'шко́ла', fr: 'école', pron: ['chkola', 'shkola'] }, { ru: 'окно́', fr: 'fenêtre', pron: ['akno'] },
+  { ru: 'река́', fr: 'rivière', pron: ['rieka', 'rika'] }, { ru: 'луна́', fr: 'lune', pron: ['louna'] }, { ru: 'мы́ло', fr: 'savon', pron: ['myla'] },
+  { ru: 'жук', fr: 'scarabée', pron: ['jouk', 'zhuk'] }, { ru: 'шум', fr: 'bruit', pron: ['choum', 'shum'] }, { ru: 'ча́шка', fr: 'tasse', pron: ['tchachka', 'chashka'] },
+  { ru: 'ключ', fr: 'clé', pron: ['klioutch', 'klyuch'] }, { ru: 'сестра́', fr: 'sœur', pron: ['sistra', 'siestra'] }, { ru: 'брат', fr: 'frère' },
+  { ru: 'ба́бушка', fr: 'grand-mère', pron: ['baboushka', 'babushka'] }, { ru: 'ви́лка', fr: 'fourchette' }, { ru: 'ло́жка', fr: 'cuillère', pron: ['lochka', 'lozhka'] },
+  { ru: 'хлеб', fr: 'pain', pron: ['khliep', 'hleb', 'khleb'] }, { ru: 'молоко́', fr: 'lait', pron: ['malako'] }, { ru: 'я́блоко', fr: 'pomme', pron: ['iabloka', 'yabloka'] },
+  { ru: 'ю́бка', fr: 'jupe', pron: ['ioubka', 'yubka'] }, { ru: 'ёж', fr: 'hérisson', pron: ['ioch', 'yozh', 'yoj'] }, { ru: 'лицо́', fr: 'visage', pron: ['litso'] },
+  { ru: 'щека́', fr: 'joue', pron: ['chtchika', 'shcheka'] }, { ru: 'цирк', fr: 'cirque', pron: ['tsirk'] }, { ru: 'теа́тр', fr: 'théâtre', pron: ['tiatr', 'teatr'] },
+  { ru: 'музе́й', fr: 'musée', pron: ['mouziéï', 'muzey'] }, { ru: 'бана́н', fr: 'banane' }, { ru: 'лимо́н', fr: 'citron', pron: ['limon'] },
+  { ru: 'телефо́н', fr: 'téléphone', pron: ['tielifon', 'telefon'] }, { ru: 'такси́', fr: 'taxi' }, { ru: 'метро́', fr: 'métro', pron: ['mietro'] },
+  { ru: 'авто́бус', fr: 'bus', pron: ['aftobous', 'avtobus'] }, { ru: 'пи́цца', fr: 'pizza', pron: ['pitsa'] }, { ru: 'подъе́зд', fr: 'entrée d’immeuble', pron: ['padiezd', 'podyezd'] },
+  { ru: 'мысль', fr: 'pensée', pron: ['mysl'] }, { ru: 'эта́ж', fr: 'étage', pron: ['ètach', 'etazh'] }, { ru: 'гриб', fr: 'champignon', pron: ['grip'] },
+  { ru: 'зонт', fr: 'parapluie' },
+];

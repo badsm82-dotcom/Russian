@@ -293,3 +293,9 @@ summary { cursor: pointer; }
 .months li.month-current { border-left-color: var(--primary); background: var(--info-bg); border-radius: 0 8px 8px 0; }
 .months li.month-past { border-left-color: var(--ok); opacity: 0.8; }
 .month-head { display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }
+.letter-chip { display: inline-block; margin: 0 0.2rem; padding: 0.1rem 0.5rem; border-radius: 8px; background: var(--ko-bg); color: var(--ko); font-weight: 600; }
+.review-list { padding-left: 1rem; }
+.review-list li { margin: 0.4rem 0; }
+.review-stim { font-size: 1.3rem; font-weight: 600; }
+.unit-progress.threshold { position: relative; }
+.unit-progress.threshold::after { content: ''; position: absolute; top: -3px; bottom: -3px; left: var(--th); width: 2px; background: var(--text); }

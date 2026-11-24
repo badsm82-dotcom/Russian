@@ -11,6 +11,7 @@ import { registerBridges } from './modules/bridges.js';
 import { registerCurriculum } from './modules/curriculum.js';
 import { registerDictionary } from './modules/dictionary.js';
 import { registerGoals } from './modules/goals.js';
+import { registerAssessments } from './modules/assessments.js';
 import { registerProfile } from './modules/profile.js';
 import { registerSessions } from './modules/sessions.js';
 
@@ -75,9 +76,10 @@ export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {})
   registerAccount(app, ctx);
   registerDictionary(app, ctx);
   registerGoals(app, ctx);
+  registerAssessments(app, ctx);
 
   // Fonctions prévues par le cahier des charges mais non livrées dans ce lot : réponse explicite, pas de simulacre.
-  const notYet = ['/v1/tutor/dialogues', '/v1/speech/transcribe', '/v1/speech/synthesize', '/v1/library', '/v1/assessments/:id/submit'];
+  const notYet = ['/v1/tutor/dialogues', '/v1/speech/transcribe', '/v1/speech/synthesize', '/v1/library'];
   for (const path of notYet) {
     app.all(path, async () => {
       throw new ApiError(501, 'not_implemented', 'Fonction prévue dans un lot ultérieur (voir docs/LIMITATIONS.md).');

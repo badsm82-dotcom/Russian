@@ -41,6 +41,7 @@ export function registerAccount(app: FastifyInstance, ctx: AppContext): void {
       q('SELECT bridge_id, bridge_version, concept_id, context, shown_at, helpful_feedback FROM bridge_attempts WHERE user_id = $1'),
       q('SELECT type, payload, created_at FROM events WHERE user_id = $1 ORDER BY id'),
     ]);
+    const assessments = await q('SELECT assessment_id, version, state, passed, scores, answers, started_at, submitted_at FROM assessment_runs WHERE user_id = $1 ORDER BY started_at');
     reply.header('content-disposition', 'attachment; filename="russian365-export.json"');
     return {
       format: 'russian365-export',
@@ -53,6 +54,7 @@ export function registerAccount(app: FastifyInstance, ctx: AppContext): void {
       review_states: states,
       taught_items: taught,
       bridge_attempts: bridges,
+      assessments,
       events,
     };
   });

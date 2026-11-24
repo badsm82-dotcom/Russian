@@ -91,3 +91,22 @@ describe('Dictionnaire OpenRussian (CC BY-SA 4.0)', () => {
     expect(stressCrossCheck(texts)).toEqual([]);
   });
 });
+
+describe('Mots réservés aux bilans (§12 « inédits »)', () => {
+  it('jamais vus en leçon ni en exercice, et chaque variante est acceptée', async () => {
+    const { ASSESSMENT_WORDS, LETTERS: L, LEXEMES: LX, TRANSFER_WORDS } = await import('../src/index.js');
+    const { stripStressMarks: strip, acceptsTransliteration } = await import('@r365/domain');
+    const norm = (s: string) => strip(s).toLocaleLowerCase('ru');
+    const used = new Set<string>();
+    const addWords = (t: string) => t.split(/[\s,.!?…«»"—–]+/).forEach((w) => w && used.add(norm(w)));
+    for (const e of EXERCISES) [e.stimulus.ru ?? '', ...e.reads, ...e.writes, ...(e.choices ?? []).map((c) => c.ru ?? '')].forEach(addWords);
+    for (const l of L) l.examples.forEach((x) => addWords(x.ru));
+    for (const x of LX) [x.ru, ...x.examples.map((e) => e.ru)].forEach(addWords);
+    for (const list of Object.values(TRANSFER_WORDS)) list.forEach((x) => addWords(x.ru));
+    expect(ASSESSMENT_WORDS.length).toBeGreaterThanOrEqual(30);
+    for (const w of ASSESSMENT_WORDS) {
+      expect(used.has(norm(w.ru)), w.ru).toBe(false);
+      for (const p of w.pron ?? []) expect(acceptsTransliteration(w.ru, p, w.pron), `${w.ru} ${p}`).toBe(true);
+    }
+  });
+});

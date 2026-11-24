@@ -22,7 +22,7 @@
   Les répétitions orales sont pratiquées mais jamais notées.
 
 ## Fonctions non livrées (P2–P5)
-- Tuteur IA / jeux de rôle (F09), TTS/ASR serveur, lecteur et bibliothèque (F10), évaluations M1–M12 et mode examen (F11),
+- Tuteur IA / jeux de rôle (F09), TTS/ASR serveur, lecteur et bibliothèque (F10), évaluations M1–M12 (F11 ; le bilan alphabet J7–J14 sans aide est livré),
   outil d'administration du contenu, notifications. Les routes correspondantes répondent **501**.
 - Hors ligne : la séance en cours (ou « préparée pour hors ligne ») continue sans réseau, avec correction provisoire
   sur l'appareil (IndexedDB) ; les réponses sont rejouées dans l'ordre au retour du réseau et recorrigées par le serveur.

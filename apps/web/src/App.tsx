@@ -13,6 +13,7 @@ function errorText(e: unknown): string {
 import { SessionPlayer } from './Session';
 import { DictionaryScreen } from './Dictionary';
 import { GoalCard, GoalPlan, useGoals } from './Goals';
+import { AssessmentCard, AssessmentPlayer } from './Assessment';
 import { LatinTrap, LetterBadge, RuWord } from './visual';
 import { speakRu } from './speech';
 
@@ -239,7 +240,7 @@ function pick(s: any) {
 }
 
 // ---------------------------------------------------------------------------
-function Home({ profile, onStart }: { profile: any; onStart: (id: string) => void }) {
+function Home({ profile, onStart, onAssessment }: { profile: any; onStart: (id: string) => void; onAssessment: () => void }) {
   const [minutes, setMinutes] = useState<number>(profile.settings.daily_minutes);
   const [current, setCurrent] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
@@ -326,6 +327,7 @@ function Home({ profile, onStart }: { profile: any; onStart: (id: string) => voi
         {analytics && <p className="small muted">{analytics.next_action_fr}</p>}
       </section>
       <GoalCard g={goals} />
+      <AssessmentCard onStart={onAssessment} />
       {unit && (
         <section className="card">
           <p className="eyebrow">Unité en cours · {unit.id}</p>
@@ -449,7 +451,7 @@ const DOMAIN_FR: Record<string, string> = {
   alphabet: 'Alphabet', reading: 'Lecture', writing: 'Écriture', listening: 'Écoute', vocabulary: 'Vocabulaire', grammar: 'Grammaire', speaking: 'Expression orale', pronunciation: 'Prononciation',
 };
 
-function StatsScreen() {
+function StatsScreen({ onAssessment }: { onAssessment: () => void }) {
   const [a, setA] = useState<any>(null);
   const goals = useGoals();
   useEffect(() => {
@@ -460,6 +462,7 @@ function StatsScreen() {
   return (
     <div className="stack">
       <GoalPlan g={goals} />
+      <AssessmentCard onStart={onAssessment} />
       <section className="card">
         <h2>Action suivante</h2>
         <p>{a.next_action_fr}</p>
@@ -635,6 +638,7 @@ export function App() {
   const [profile, setProfile] = useState<any>(null);
   const [tab, setTab] = useState<Tab>('home');
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [inAssessment, setInAssessment] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadProfile = (): Promise<void> =>
@@ -679,7 +683,7 @@ export function App() {
       <a href="#main" className="skip">Aller au contenu</a>
       <header className="topbar">
         <span className="brand">Russian <b>365</b></span>
-        {!sessionId && (
+        {!sessionId && !inAssessment && (
           <nav aria-label="Navigation principale" className="tabs">
             {tabs.map(([k, label]) => (
               <button key={k} type="button" className={`tab${tab === k ? ' on' : ''}`} aria-current={tab === k ? 'page' : undefined} onClick={() => setTab(k)}>
@@ -690,10 +694,12 @@ export function App() {
         )}
       </header>
       <main id="main" className="container">
-        {sessionId ? (
+        {inAssessment ? (
+          <AssessmentPlayer onExit={() => { setInAssessment(false); setTab('home'); }} />
+        ) : sessionId ? (
           <SessionPlayer sessionId={sessionId} onExit={() => { setSessionId(null); setTab('home'); }} />
         ) : tab === 'home' ? (
-          <Home profile={profile} onStart={setSessionId} />
+          <Home profile={profile} onStart={setSessionId} onAssessment={() => setInAssessment(true)} />
         ) : tab === 'path' ? (
           <PathScreen />
         ) : tab === 'alphabet' ? (
@@ -701,7 +707,7 @@ export function App() {
         ) : tab === 'dict' ? (
           <DictionaryScreen rate={profile.settings.audio_rate} />
         ) : tab === 'stats' ? (
-          <StatsScreen />
+          <StatsScreen onAssessment={() => setInAssessment(true)} />
         ) : (
           <SettingsScreen profile={profile} onChange={loadProfile} onLogout={() => { setAuthed(false); setProfile(null); }} />
         )}

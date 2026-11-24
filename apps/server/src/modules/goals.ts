@@ -16,6 +16,7 @@ import type { AppContext } from '../context.js';
 import { isScored, loadAttempts, loadProfile } from '../learner-state.js';
 import { requireUser } from './auth.js';
 import { letterAttempts } from './sessions.js';
+import { assessmentPassed } from './assessments.js';
 
 const MAX_ACTIVE_ATTEMPT_MS = 120_000;
 const TEACH_ACTIVE_MIN = 0.5;
@@ -60,7 +61,7 @@ export function registerGoals(app: FastifyInstance, ctx: AppContext): void {
       activity,
       active_lemmas: active,
       receptive_lemmas: receptive,
-      alphabet_passed: alphabetExitStatus(letterAttempts(ctx.content, attempts), ctx.content.letters, tz).passed,
+      alphabet_passed: (await assessmentPassed(ctx, userId, 'alphabet')) || alphabetExitStatus(letterAttempts(ctx.content, attempts), ctx.content.letters, tz).passed,
       content_available_until_month: CONTENT_MONTHS_AVAILABLE,
     });
     return { ...report, months: MONTHLY_TARGETS, weekly_rhythm_fr: WEEKLY_RHYTHM_FR, content_available_until_month: CONTENT_MONTHS_AVAILABLE };
