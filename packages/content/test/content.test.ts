@@ -77,3 +77,17 @@ describe('Supports visuels', () => {
     }
   });
 });
+
+describe('Dictionnaire OpenRussian (CC BY-SA 4.0)', () => {
+  it('lemmatise les formes fléchies et retrouve les accents', async () => {
+    const { lookup, lemmatize, stressCrossCheck } = await import('../src/index.js');
+    expect(lemmatize('хочу').map((e) => e.b)).toContain('хотеть');
+    expect(lookup('Спасибо')[0]?.entry.a).toBe('спаси́бо');
+    expect(stressCrossCheck(['во́да']).length).toBe(1);
+  });
+  it('les accents de tout le contenu concordent avec la référence', async () => {
+    const { stressCrossCheck, LEXEMES: LX } = await import('../src/index.js');
+    const texts = [...LX.flatMap((x) => [x.ru, ...x.examples.map((e) => e.ru)]), ...EXERCISES.flatMap((e) => [e.stimulus.ru ?? '', ...e.reads])];
+    expect(stressCrossCheck(texts)).toEqual([]);
+  });
+});

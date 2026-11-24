@@ -11,10 +11,11 @@ function errorText(e: unknown): string {
   return (e as Error)?.message ?? String(e);
 }
 import { SessionPlayer } from './Session';
+import { DictionaryScreen } from './Dictionary';
 import { LatinTrap, LetterBadge, RuWord } from './visual';
 import { speakRu } from './speech';
 
-type Tab = 'home' | 'path' | 'alphabet' | 'stats' | 'settings';
+type Tab = 'home' | 'path' | 'alphabet' | 'dict' | 'stats' | 'settings';
 const DURATIONS = [5, 15, 25, 35, 60] as const;
 
 function applyTheme(theme: string, scale: number) {
@@ -659,7 +660,7 @@ export function App() {
   if (!profile) return <main className="container"><p aria-busy="true">Chargement…</p></main>;
   if (!profile.onboarded) return <Onboarding profile={profile} onDone={loadProfile} />;
 
-  const tabs: [Tab, string][] = [['home', 'Accueil'], ['path', 'Parcours'], ['alphabet', 'Alphabet'], ['stats', 'Progrès'], ['settings', 'Réglages']];
+  const tabs: [Tab, string][] = [['home', 'Accueil'], ['path', 'Parcours'], ['alphabet', 'Alphabet'], ['dict', 'Dico'], ['stats', 'Progrès'], ['settings', 'Réglages']];
   return (
     <div className="app">
       <a href="#main" className="skip">Aller au contenu</a>
@@ -684,6 +685,8 @@ export function App() {
           <PathScreen />
         ) : tab === 'alphabet' ? (
           <AlphabetScreen rate={profile.settings.audio_rate} />
+        ) : tab === 'dict' ? (
+          <DictionaryScreen rate={profile.settings.audio_rate} />
         ) : tab === 'stats' ? (
           <StatsScreen />
         ) : (

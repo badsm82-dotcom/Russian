@@ -88,7 +88,7 @@ p { margin: 0.4rem 0; }
 .brand { font-weight: 600; }
 .brand b { color: var(--accent); }
 .tabs { display: flex; gap: 0.25rem; overflow-x: auto; max-width: 100%; }
-@media (max-width: 520px) { .tabs { width: 100%; justify-content: space-between; flex-wrap: wrap; } .tab { padding: 0.4rem 0.35rem; font-size: 0.85rem; } }
+@media (max-width: 520px) { .tabs { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.2rem; } .tab { padding: 0.4rem 0.2rem; font-size: 0.85rem; text-align: center; } }
 .tab { background: none; border: 0; padding: 0.5rem 0.75rem; border-radius: 999px; color: var(--muted); font: inherit; cursor: pointer; }
 .tab.on { background: var(--surface-2); color: var(--text); font-weight: 600; }
 
@@ -274,3 +274,9 @@ summary { cursor: pointer; }
 .tile-consonant_voiceless { border-bottom-color: var(--c-voiceless); }
 .tile-consonant_sonorant { border-bottom-color: var(--c-sonorant); }
 .tile-sign { border-bottom-color: var(--c-sign); }
+.forms td, .forms th { padding: 0.3rem 0.4rem; }
+.forms .ru { font-size: 1.05rem; }
+.forms-grid { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.tiny-muted { font-size: 0.72rem; color: var(--muted); }
+.big-word-sm { font-size: 1.8rem; margin: 0; }
+.dict-entry p { margin: 0.3rem 0; }

@@ -272,6 +272,14 @@ describe('Passerelles (F14)', () => {
 });
 
 describe('Divers', () => {
+  it('dictionnaire : forme fléchie → lemme, accent, formes, licence', async () => {
+    const c = api(env, await register(env));
+    const r = (await c.get(`/v1/dictionary?q=${encodeURIComponent('хочу')}`)).body;
+    expect(r.results[0]).toMatchObject({ lemma: 'хотеть', pos: 'verb', match: 'form' });
+    expect(r.results[0].forms.presfut_sg2).toBe('хо́чешь');
+    expect(r.source.license).toMatch(/CC BY-SA 4.0/);
+    expect((await c.get('/v1/dictionary?q=')).status).toBe(400);
+  });
   it('fonctions non livrées : 501 explicite, pas de simulacre', async () => {
     const c = api(env, await register(env));
     expect((await c.post('/v1/tutor/dialogues')).status).toBe(501);

@@ -9,6 +9,7 @@ import { registerAnalytics } from './modules/analytics.js';
 import { registerAuth } from './modules/auth.js';
 import { registerBridges } from './modules/bridges.js';
 import { registerCurriculum } from './modules/curriculum.js';
+import { registerDictionary } from './modules/dictionary.js';
 import { registerProfile } from './modules/profile.js';
 import { registerSessions } from './modules/sessions.js';
 
@@ -71,6 +72,7 @@ export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {})
   registerBridges(app, ctx);
   registerAnalytics(app, ctx);
   registerAccount(app, ctx);
+  registerDictionary(app, ctx);
 
   // Fonctions prévues par le cahier des charges mais non livrées dans ce lot : réponse explicite, pas de simulacre.
   const notYet = ['/v1/tutor/dialogues', '/v1/speech/transcribe', '/v1/speech/synthesize', '/v1/library', '/v1/assessments/:id/submit'];

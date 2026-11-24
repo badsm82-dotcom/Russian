@@ -4,3 +4,4 @@ export * from './bridges.js';
 export * from './curriculum.js';
 export * from './validate.js';
 export * from './visuals.js';
+export * from './dictionary.js';
