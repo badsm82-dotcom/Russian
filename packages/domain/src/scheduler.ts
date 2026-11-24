@@ -90,6 +90,24 @@ export function scheduleReview(previous: ReviewState, attempt: ScoredAttempt, no
   return { state: s, changed: true, remediation: isRemediation };
 }
 
+/**
+ * Application d'une tentative avec la règle de révision anticipée :
+ * une réussite sur un item non encore dû (pratique dans la même séance) est enregistrée mais ne fait pas
+ * avancer le niveau — sinon plusieurs réussites le même jour compresseraient artificiellement les intervalles.
+ * Un échec est toujours pris en compte (il révèle un oubli) ; la remédiation après échec est toujours autorisée.
+ */
+export function applyAttempt(previous: ReviewState, attempt: ScoredAttempt, now: Date): ScheduleResult & { early: boolean } {
+  const early =
+    previous.due_at !== null &&
+    previous.due_at.getTime() > now.getTime() &&
+    !previous.remediation_pending &&
+    attempt.grade >= 1 &&
+    !attempt.abandoned &&
+    !attempt.unscorable;
+  if (early) return { state: previous, changed: false, remediation: false, early: true };
+  return { ...scheduleReview(previous, attempt, now), early: false };
+}
+
 /** Un item est dû si sa date d'échéance est passée. Un item jamais planifié n'est pas « dû » (pas encore enseigné). */
 export function isDue(state: ReviewState, now: Date): boolean {
   return state.due_at !== null && state.due_at.getTime() <= now.getTime();

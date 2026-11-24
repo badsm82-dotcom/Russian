@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialReviewState, scheduleReview, isDue, REVIEW_INTERVALS_DAYS } from '../src/index.js';
+import { initialReviewState, scheduleReview, applyAttempt, isDue, REVIEW_INTERVALS_DAYS } from '../src/index.js';
 
 const T0 = new Date('2026-11-24T08:00:00Z');
 const DAY = 86_400_000;
@@ -75,5 +75,16 @@ describe('ReviewScheduler (§9, AC05) — horloge simulée', () => {
   it('un échec sur un item maîtrisé le réouvre', () => {
     const s = { ...initialReviewState('x', 'recall'), stage: 6, mastery_status: 'mastered' as const };
     expect(scheduleReview(s, { grade: 0, assisted: false }, T0).state.mastery_status).toBe('reopened');
+  });
+
+  it('révision anticipée : réussite non comptée pour l’avancement, échec pris en compte', () => {
+    const s = scheduleReview(initialReviewState('x', 'recall'), { grade: 2, assisted: false }, T0).state;
+    const later = new Date(T0.getTime() + 3600_000);
+    expect(applyAttempt(s, { grade: 2, assisted: false }, later)).toMatchObject({ early: true, changed: false, state: s });
+    const f = applyAttempt(s, { grade: 0, assisted: false }, later);
+    expect(f.changed).toBe(true);
+    expect(f.state.remediation_pending).toBe(true);
+    // la remédiation reste possible avant l'échéance de 10 min
+    expect(applyAttempt(f.state, { grade: 2, assisted: false }, new Date(later.getTime() + 60_000)).remediation).toBe(true);
   });
 });

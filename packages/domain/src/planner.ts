@@ -27,7 +27,7 @@ export interface UnitDef {
   requires_alphabet_exit?: boolean;
 }
 
-export type StepPurpose = 'review' | 'new' | 'remediation' | 'transfer' | 'production';
+export type StepPurpose = 'review' | 'new' | 'remediation' | 'transfer' | 'production' | 'practice';
 
 export type PlannedStep =
   | { kind: 'teach'; item_id: string; alternative_explanation: boolean }
@@ -50,6 +50,8 @@ export interface PlannerInput {
   speakableItems: ReadonlySet<string>;
   manualDifficulty?: 'auto' | 'easier' | 'harder';
   unitCompletionThreshold?: number;
+  /** Dernière tentative par exercice : sert à varier les exercices d'un même item. */
+  lastAttemptAt?: ReadonlyMap<string, Date>;
 }
 
 export interface PlanExplanation {
@@ -127,6 +129,21 @@ export function currentUnit(input: Pick<PlannerInput, 'units' | 'taught' | 'stat
   return { unit: null, blocked_by: null };
 }
 
+/**
+ * Ordre maximal d'unité dont les exercices sont accessibles : on ne peut dépasser une unité non consolidée.
+ * (Une unité sans nouvel item, comme la consolidation, exige aussi la consolidation de la précédente.)
+ */
+export function reachableUnitOrder(input: Pick<PlannerInput, 'units' | 'taught' | 'states' | 'unitCompletionThreshold'>): number {
+  const units = [...input.units].sort((a, b) => a.order - b.order);
+  for (let i = 0; i < units.length; i++) {
+    const u = units[i]!;
+    const prev = units[i - 1];
+    if (prev && !unitCompleted(prev, input.taught, input.states, input.unitCompletionThreshold)) return prev.order;
+    if (!u.items.every((it) => input.taught.has(it))) return u.order;
+  }
+  return units[units.length - 1]?.order ?? 0;
+}
+
 export interface ItemAttemptLite {
   grade: Grade;
   created_at: Date;
@@ -168,15 +185,21 @@ function pickExercise(
   difficulty: 'auto' | 'easier' | 'harder',
   avoidType: string | null,
   used: ReadonlySet<string>,
+  lastAttemptAt: ReadonlyMap<string, Date> = new Map(),
 ): ExerciseDef | null {
   const pool = candidates.filter((e) => !used.has(e.slug));
   if (pool.length === 0) return null;
   const target = simplified || difficulty === 'easier' ? 1 : difficulty === 'harder' ? 3 : null;
+  const last = (e: ExerciseDef) => lastAttemptAt.get(e.slug)?.getTime() ?? -1;
   return [...pool].sort((a, b) => {
     if (target !== null) {
       const d = Math.abs(a.difficulty - target) - Math.abs(b.difficulty - target);
       if (d !== 0) return d;
-    } else if (a.difficulty !== b.difficulty) return a.difficulty - b.difficulty;
+    }
+    // Varier : exercice jamais fait, puis le moins récent (éviter les répétitions identiques).
+    const r = last(a) - last(b);
+    if (r !== 0) return r;
+    if (target === null && a.difficulty !== b.difficulty) return a.difficulty - b.difficulty;
     const t = Number(a.type === avoidType) - Number(b.type === avoidType);
     if (t !== 0) return t;
     return a.slug.localeCompare(b.slug);
@@ -212,7 +235,10 @@ export function planSession(input: PlannerInput): SessionPlan {
   const used = new Set<string>();
   let spent = 0;
 
-  const available = input.exercises.filter((e) => e.status !== 'retired');
+  const reachable = reachableUnitOrder(input);
+  const unitOrder = new Map(input.units.map((u) => [u.id, u.order]));
+  const available = input.exercises.filter((e) => e.status !== 'retired' && (unitOrder.get(e.unit_id) ?? Infinity) <= reachable);
+  const lastAt = input.lastAttemptAt ?? new Map<string, Date>();
   const byItemComp = new Map<string, ExerciseDef[]>();
   for (const e of available) {
     const k = `${e.item_id}|${e.competency}`;
@@ -228,16 +254,21 @@ export function planSession(input: PlannerInput): SessionPlan {
   for (const st of due) {
     const cands = (byItemComp.get(`${st.item_id}|${st.competency}`) ?? []).filter((e) => isExerciseAvailable(e, input.taught));
     const simplified = input.simplified.has(st.item_id);
-    const ex = pickExercise(cands, simplified, difficulty, lastType, used);
+    let ex = pickExercise(cands, simplified, difficulty, lastType, used, lastAt);
     if (!ex) continue;
+    // Mode simplifié : variante plus facile prévue par le contenu (ex. QCM au lieu de saisie).
+    if (simplified && ex.easier_exercise_slug) {
+      const easier = bySlug.get(ex.easier_exercise_slug);
+      if (easier && !used.has(easier.slug) && isExerciseAvailable(easier, input.taught)) ex = easier;
+    }
     if (simplified && !reviewSteps.some((s) => s.kind === 'teach' && s.item_id === st.item_id)) {
       reviewSteps.push({ kind: 'teach', item_id: st.item_id, alternative_explanation: true });
     }
     reviewSteps.push({
       kind: 'exercise',
       exercise_slug: ex.slug,
-      item_id: st.item_id,
-      competency: st.competency,
+      item_id: ex.item_id,
+      competency: ex.competency,
       purpose: st.remediation_pending ? 'remediation' : 'review',
     });
     used.add(ex.slug);
@@ -299,7 +330,7 @@ export function planSession(input: PlannerInput): SessionPlan {
       for (const comp of RECOGNITION_FIRST) {
         for (const item of group) {
           const cands = (byItemComp.get(`${item}|${comp}`) ?? []).filter((e) => isExerciseAvailable(e, taughtSoFar));
-          const ex = pickExercise(cands, false, difficulty, null, used);
+          const ex = pickExercise(cands, false, difficulty, null, used, lastAt);
           if (!ex) continue;
           exSteps.push({ kind: 'exercise', exercise_slug: ex.slug, item_id: item, competency: comp, purpose: 'new' });
           used.add(ex.slug);
@@ -314,8 +345,32 @@ export function planSession(input: PlannerInput): SessionPlan {
     }
   }
 
-  // 3. Production (toujours réservée, y compris à 5 min) : répétition orale non évaluée.
+  // 2b. Compétences nouvellement accessibles sur des items déjà enseignés
+  // (ex. lecture d'un mot appris à l'oral une fois ses lettres connues, dictée de consolidation).
   const allTaught = new Set([...input.taught, ...newItems]);
+  if (!highDebt) {
+    const hasState = new Set(input.states.map((s) => `${s.item_id}|${s.competency}`));
+    const planned = new Set(steps.filter((s) => s.kind === 'exercise').map((s) => (s.kind === 'exercise' ? `${s.item_id}|${s.competency}` : '')));
+    const unlockEnd = totalBudget - budget.production;
+    const fresh = available
+      .filter((e) => !e.controlled_transfer && input.taught.has(e.item_id) && !hasState.has(`${e.item_id}|${e.competency}`))
+      .filter((e) => !planned.has(`${e.item_id}|${e.competency}`) && !used.has(e.slug) && isExerciseAvailable(e, allTaught))
+      .sort((a, b) => (unitOrder.get(a.unit_id) ?? 0) - (unitOrder.get(b.unit_id) ?? 0) || a.difficulty - b.difficulty || a.slug.localeCompare(b.slug));
+    const unlocked: PlannedStep[] = [];
+    for (const ex of fresh) {
+      const key = `${ex.item_id}|${ex.competency}`;
+      if (planned.has(key)) continue;
+      const sec = exerciseSeconds(ex);
+      if (spent + sec > unlockEnd) break;
+      unlocked.push({ kind: 'exercise', exercise_slug: ex.slug, item_id: ex.item_id, competency: ex.competency, purpose: 'new' });
+      planned.add(key);
+      used.add(ex.slug);
+      spent += sec;
+    }
+    steps.push(...interleave(unlocked, bySlug));
+  }
+
+  // 3. Production (toujours réservée, y compris à 5 min) : répétition orale non évaluée.
   const speakCandidates = [...newItems, ...input.taught].filter((i) => input.speakableItems.has(i));
   const speakItem = speakCandidates[0];
   if (speakItem) {
@@ -332,6 +387,28 @@ export function planSession(input: PlannerInput): SessionPlan {
     steps.push({ kind: 'exercise', exercise_slug: ex.slug, item_id: ex.item_id, competency: ex.competency, purpose: 'transfer' });
     used.add(ex.slug);
     spent += sec;
+  }
+
+  // 5. Pratique : exercices variés sur les items du jour, jusqu'à remplir la séance (sans avancement anticipé).
+  const practiceItems = [...newItems, ...steps.filter((s) => s.kind === 'exercise' && s.purpose === 'review').map((s) => s.item_id)];
+  if (practiceItems.length > 0 && !highDebt) {
+    const practice = available
+      .filter((e) => practiceItems.includes(e.item_id) && !used.has(e.slug) && isExerciseAvailable(e, allTaught))
+      .sort((a, b) => practiceItems.indexOf(a.item_id) - practiceItems.indexOf(b.item_id) || a.difficulty - b.difficulty || a.slug.localeCompare(b.slug));
+    const extra: PlannedStep[] = [];
+    for (const ex of practice) {
+      const sec = exerciseSeconds(ex);
+      if (spent + sec > totalBudget) continue;
+      extra.push({ kind: 'exercise', exercise_slug: ex.slug, item_id: ex.item_id, competency: ex.competency, purpose: 'practice' });
+      used.add(ex.slug);
+      spent += sec;
+    }
+    // Mélanger les items pour éviter les répétitions identiques consécutives.
+    const mixed: PlannedStep[] = [];
+    const queues = new Map<string, PlannedStep[]>();
+    for (const s of extra) queues.set(s.item_id, [...(queues.get(s.item_id) ?? []), s]);
+    while ([...queues.values()].some((q) => q.length)) for (const q of queues.values()) { const n = q.shift(); if (n) mixed.push(n); }
+    steps.push(...interleave(mixed, bySlug));
   }
 
   if (steps.length === 0) {
