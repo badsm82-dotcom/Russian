@@ -3,18 +3,15 @@ import { api, ApiError, sendAttempt, uuid, type AttemptPayload } from './api';
 import { cachedSession, cacheSession, enqueue, flushOps, gradeOffline, isNetworkError, updateCachedCursor } from './offline';
 import { CyrillicKeyboard } from './Keyboard';
 import { ruVoiceAvailable, speakRu, stripStress } from './speech';
+import { AnswerDiff, CardTableView, LatinTrap, LetterBadge, RuWord, StressLegend } from './visual';
 
 type Step = any;
 type Session = any;
 
 const RATES = [0.75, 0.9, 1, 1.15] as const;
 
-function Ru({ text, stress, className = '' }: { text: string; stress: boolean; className?: string }) {
-  return (
-    <span className={`ru ${className}`} lang="ru">
-      {stress ? text : stripStress(text)}
-    </span>
-  );
+function Ru({ text, stress, className = '', reduce = false, highlight }: { text: string; stress: boolean; className?: string; reduce?: boolean; highlight?: string }) {
+  return <RuWord text={text} stress={stress} className={className} reduce={reduce} highlight={highlight} />;
 }
 
 function AudioButton({ text, rate, label = 'Écouter' }: { text: string; rate: number; label?: string }) {
@@ -99,14 +96,21 @@ function TeachCard({ step, session, onDone }: { step: Step; session: Session; on
     <article className="card teach">
       <p className="eyebrow">{step.alternative_explanation ? 'Autre explication' : step.kind === 'teach' && c.item_type === 'letter' ? 'Nouvelle lettre' : 'Nouvelle expression'}</p>
       {c.item_type === 'letter' ? (
-        <div className="letter-pair" aria-label={`Majuscule ${c.ru_upper}, minuscule ${c.ru_lower}`}>
-          <span className="ru big">{c.ru_upper}</span>
-          <span className="ru big">{c.ru_lower}</span>
-        </div>
+        <>
+          <div className={`letter-pair lc-${c.letter_class?.key ?? ''}`} aria-label={`Majuscule ${c.ru_upper}, minuscule ${c.ru_lower}`}>
+            <span className="ru big">{c.ru_upper}</span>
+            <span className="ru big">{c.ru_lower}</span>
+          </div>
+          <LetterBadge cls={c.letter_class} />
+          <LatinTrap cyr={c.ru_upper} latin={c.latin_lookalike} />
+        </>
       ) : (
-        <h2>
-          <Ru text={c.ru} stress={s.show_stress_marks} className="big-word" />
-        </h2>
+        <div className="word-head">
+          {c.emoji && <span className="emoji-big" aria-hidden="true">{c.emoji}</span>}
+          <h2>
+            <Ru text={c.ru} stress={s.show_stress_marks} reduce className="big-word" />
+          </h2>
+        </div>
       )}
       {step.show_transliteration && c.item_type !== 'letter' && <p className="translit">≈ {c.translit_fr}</p>}
       <p className="meaning">{c.fr}</p>
@@ -119,7 +123,7 @@ function TeachCard({ step, session, onDone }: { step: Step; session: Session; on
         <ul className="examples">
           {c.examples.map((e: any) => (
             <li key={e.ru}>
-              <Ru text={e.ru} stress={s.show_stress_marks} /> {step.show_transliteration && <span className="translit">≈ {e.translit_fr}</span>} — {e.fr}
+              <Ru text={e.ru} stress={s.show_stress_marks} reduce highlight={c.item_type === 'letter' ? c.ru_lower : undefined} /> {step.show_transliteration && <span className="translit">≈ {e.translit_fr}</span>} — {e.fr}
               <button type="button" className="btn btn-ghost btn-small" onClick={() => speakRu(e.ru, s.audio_rate)} aria-label={`Écouter ${stripStress(e.ru)}`}>
                 🔊
               </button>
@@ -127,6 +131,8 @@ function TeachCard({ step, session, onDone }: { step: Step; session: Session; on
           ))}
         </ul>
       )}
+      <CardTableView table={c.table} />
+      {s.show_stress_marks && c.item_type !== 'letter' && <StressLegend reduce={/[оО]/.test(c.ru)} />}
       {s.bridges_enabled && <BridgePanel conceptId={c.item_id} context="lesson" sessionId={session.id} stepIndex={step.index} />}
       <div className="actions">
         <button type="button" className="btn btn-primary" disabled={busy} onClick={async () => { setBusy(true); try { await onDone(); } finally { setBusy(false); } }}>
@@ -142,9 +148,12 @@ function SpeakCard({ step, session, onDone }: { step: Step; session: Session; on
   return (
     <article className="card">
       <p className="eyebrow">À toi de parler</p>
-      <h2>
-        <Ru text={c?.ru ?? ''} stress={session.settings.show_stress_marks} className="big-word" />
-      </h2>
+      <div className="word-head">
+        {c?.emoji && <span className="emoji-big" aria-hidden="true">{c.emoji}</span>}
+        <h2>
+          <Ru text={c?.ru ?? ''} stress={session.settings.show_stress_marks} reduce className="big-word" />
+        </h2>
+      </div>
       {step.show_transliteration && <p className="translit">≈ {c?.translit_fr}</p>}
       <p>Écoute, puis répète à voix haute deux ou trois fois. Aucun micro n’est nécessaire : cette répétition n’est pas notée.</p>
       <AudioButton text={c?.audio_text ?? ''} rate={session.settings.audio_rate} />
@@ -247,7 +256,10 @@ function ExerciseCard({ step, session, onAnswered, onNext, offline }: { step: St
   return (
     <article className="card">
       <p className="eyebrow">{step.purpose === 'review' ? 'Révision' : step.purpose === 'remediation' ? 'On réessaie' : step.purpose === 'transfer' ? 'Mot inédit' : 'Exercice'}</p>
-      <h2 className="prompt">{ex.prompt_fr}</h2>
+      <h2 className="prompt">
+        {step.prompt_emoji && <span className="emoji-prompt" aria-hidden="true">{step.prompt_emoji} </span>}
+        {ex.prompt_fr}
+      </h2>
       {showText && (
         <p className="stimulus">
           <Ru text={ex.stimulus.ru} stress={s.show_stress_marks} className="big-word" />
@@ -269,6 +281,7 @@ function ExerciseCard({ step, session, onAnswered, onNext, offline }: { step: St
         <div className="choices" role="group" aria-label="Choix de réponse">
           {ex.choices.map((c: any) => (
             <button key={c.id} type="button" className={`btn choice${c.ru ? ' ru big-choice' : ''}`} disabled={busy} onClick={() => submit({ choice_id: c.id })}>
+              {step.choice_emojis?.[c.id] && <span className="choice-emoji" aria-hidden="true">{step.choice_emojis[c.id]}</span>}
               {c.label}
             </button>
           ))}
@@ -349,7 +362,8 @@ function ExerciseCard({ step, session, onAnswered, onNext, offline }: { step: St
               Réponse attendue : <strong className={/[а-яё]/i.test(result.expected) ? 'ru' : ''}>{result.expected}</strong>
             </p>
           )}
-          {result.explanation_fr && <p className="small">{result.explanation_fr}</p>}
+          {!result.accepted && ex.input === 'cyrillic' && text.trim() && result.expected && <AnswerDiff given={text} expected={result.expected} />}
+          {result.explanation_fr && !String(result.feedback_fr).includes(result.explanation_fr) && <p className="small">{result.explanation_fr}</p>}
           {ex.stimulus.audio_text && !audioBefore && <AudioButton text={ex.stimulus.audio_text} rate={s.audio_rate} label="Écouter le mot" />}
           {!result.accepted && ex.input === 'cyrillic' && result.expected && (
             <label className="small block">
@@ -457,6 +471,24 @@ export function SessionPlayer({ sessionId, onExit }: { sessionId: string; onExit
           <li><strong>{summary.incorrect}</strong> à revoir (elles reviendront au bon moment)</li>
           <li><strong>{Math.round(summary.active_seconds / 60)}</strong> min de réponses actives</li>
         </ul>
+        {(() => {
+          const learned = session.steps.filter((x: any) => x.kind === 'teach' && x.card && !x.alternative_explanation).map((x: any) => x.card);
+          if (!learned.length) return null;
+          return (
+            <>
+              <h3>Appris aujourd’hui</h3>
+              <ul className="learned">
+                {learned.map((c: any) => (
+                  <li key={c.item_id}>
+                    <span className="learned-visual" aria-hidden="true">{c.item_type === 'letter' ? <span className="ru">{c.ru_upper}{c.ru_lower}</span> : c.emoji ?? '•'}</span>
+                    {c.item_type !== 'letter' && <RuWord text={c.ru} />}
+                    <span className="small muted">{c.fr}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          );
+        })()}
         {session.explanations.map((e: any) => (
           <p key={e.code} className="small muted">{e.message_fr}</p>
         ))}

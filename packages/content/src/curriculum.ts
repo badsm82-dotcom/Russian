@@ -18,6 +18,7 @@ import {
 } from '@r365/domain';
 import { LETTERS, TRANSFER_WORDS, type LetterDef, type WordExample } from './alphabet.js';
 import { LEXEMES, type LexemeDef } from './lexicon.js';
+import { ITEM_EMOJI, ITEM_TABLES, LATIN_LOOKALIKE, letterClass, type CardTable, type LetterClass } from './visuals.js';
 
 export const CONTENT_VERSION = 1;
 /** Contenu rédigé mais non relu par un russophone : à valider avant mise en production (§17). */
@@ -116,6 +117,11 @@ export interface TeachCard {
   /** Lettres nécessaires pour lire la fiche : si inconnues, apprentissage par l'audio seulement. */
   letters: string[];
   status: ContentStatus;
+  /** Aides visuelles (facultatives) : pictogramme, tableau de structure, catégorie de lettre, sosie latin. */
+  emoji?: string;
+  table?: CardTable;
+  letter_class?: LetterClass;
+  latin_lookalike?: string;
 }
 
 function letterCard(l: LetterDef): TeachCard {
@@ -145,6 +151,8 @@ function letterCard(l: LetterDef): TeachCard {
     warnings_fr: warnings,
     letters: [...new Set(l.examples.flatMap((e) => [...lettersInText(e.ru)]))],
     status: DEFAULT_STATUS,
+    letter_class: letterClass(l.lower),
+    latin_lookalike: LATIN_LOOKALIKE[l.lower],
   };
 }
 
@@ -164,6 +172,8 @@ function lexemeCard(x: LexemeDef): TeachCard {
     warnings_fr: ['Translittération approximative : écoute l’audio, qui fait référence.'],
     letters: [...lettersInText(x.ru)],
     status: DEFAULT_STATUS,
+    emoji: ITEM_EMOJI[x.item_id],
+    table: ITEM_TABLES[x.item_id],
   };
 }
 

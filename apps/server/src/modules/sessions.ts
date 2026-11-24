@@ -161,8 +161,15 @@ async function hydrate(ctx: AppContext, s: SessionRow) {
       const ex = ctx.content.exerciseById.get(step.exercise_id ?? '') ?? ctx.content.exerciseBySlug.get(step.exercise_slug);
       if (!ex) return { ...base, kind: 'unavailable' as const };
       const shown = ex.stimulus.ru ? [...lettersInText(ex.stimulus.ru)] : [];
+      // Pictogrammes : sur les choix de sens (ids = items), et à côté de la consigne seulement quand le sens
+      // est déjà donné en français (rappel, production) — jamais quand l'image révélerait la réponse.
+      const emojiOf = (id: string) => ctx.content.cards.get(id)?.emoji;
+      const choiceEmojis = Object.fromEntries((ex.choices ?? []).map((c) => [c.id, emojiOf(c.id)]).filter(([, e]) => !!e));
+      const promptGivesMeaning = ex.type === 'active_recall' || ex.type === 'fill_blank' || ex.type === 'transformation';
       return {
         ...base,
+        choice_emojis: choiceEmojis,
+        prompt_emoji: promptGivesMeaning ? (emojiOf(ex.item_id) ?? null) : null,
         exercise: toClientExercise(ex),
         show_transliteration: false, // jamais pendant un exercice évalué : la translittération serait la réponse
         letters_unreliable: shown.filter((l) => !reliable.has(l)),

@@ -1,6 +1,6 @@
 /** Curriculum (§4) : parcours annuel indicatif, unités disponibles, alphabet. */
 import type { FastifyInstance } from 'fastify';
-import { LETTERS } from '@r365/content';
+import { LATIN_LOOKALIKE, LETTERS, letterClass } from '@r365/content';
 import { currentUnit, reachableUnitOrder, unitCompleted } from '@r365/domain';
 import type { AppContext } from '../context.js';
 import { loadStates, loadTaught } from '../learner-state.js';
@@ -64,6 +64,8 @@ export function registerCurriculum(app: FastifyInstance, ctx: AppContext): void 
           sound_fr: l.sound_fr,
           approximation: l.approximation,
           latin_trap_fr: l.latin_trap_fr ?? null,
+          letter_class: letterClass(l.lower),
+          latin_lookalike: LATIN_LOOKALIKE[l.lower] ?? null,
           examples: l.examples,
           taught: taught.has(id),
           recognition_stage: st.find((s) => s.competency === 'recognition')?.stage ?? null,

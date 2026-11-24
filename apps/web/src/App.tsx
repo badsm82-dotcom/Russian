@@ -11,6 +11,7 @@ function errorText(e: unknown): string {
   return (e as Error)?.message ?? String(e);
 }
 import { SessionPlayer } from './Session';
+import { LatinTrap, LetterBadge, RuWord } from './visual';
 import { speakRu } from './speech';
 
 type Tab = 'home' | 'path' | 'alphabet' | 'stats' | 'settings';
@@ -352,8 +353,16 @@ function PathScreen() {
         <ol className="units">
           {c.units.map((u: any) => (
             <li key={u.id} className={u.current ? 'current' : u.locked ? 'locked' : u.completed ? 'done' : ''}>
-              <strong>{u.id}</strong> {u.title_fr} {u.completed ? '✓' : u.locked ? '🔒' : u.current ? '← en cours' : ''}
-              <div className="small muted">{u.mission_fr} · {u.items_taught}/{u.items_total} présentés</div>
+              <span className="unit-node" aria-hidden="true">{u.completed ? '✓' : u.locked ? '🔒' : u.order}</span>
+              <div className="unit-body">
+                <strong>{u.id}</strong> {u.title_fr} {u.current ? <span className="tag">en cours</span> : null}
+                <div className="small muted">{u.mission_fr}</div>
+                {u.items_total > 0 && (
+                  <div className="unit-progress" role="progressbar" aria-valuemin={0} aria-valuemax={u.items_total} aria-valuenow={u.items_taught} aria-label={`${u.items_taught} sur ${u.items_total} présentés`}>
+                    <div style={{ width: `${Math.round((u.items_taught / u.items_total) * 100)}%` }} />
+                  </div>
+                )}
+              </div>
             </li>
           ))}
         </ol>
@@ -394,9 +403,14 @@ function AlphabetScreen({ rate }: { rate: number }) {
       <section className="card">
         <h2>Les 33 lettres</h2>
         <p className="small muted">Les approximations françaises sont signalées ; l’audio russe fait référence.</p>
+        <p className="tile-legend small">
+          <span className="badge badge-vowel_hard">voyelle dure</span> <span className="badge badge-vowel_soft">voyelle molle</span>{' '}
+          <span className="badge badge-consonant_voiced">sonore</span> <span className="badge badge-consonant_voiceless">sourde</span>{' '}
+          <span className="badge badge-consonant_sonorant">sonante</span> <span className="badge badge-sign">signe</span>
+        </p>
         <div className="alphabet">
           {letters.map((l) => (
-            <button key={l.lower} type="button" className={`letter-tile${l.taught ? ' seen' : ''}`} onClick={() => setOpen(l)} aria-label={`${l.upper} ${l.lower}${l.taught ? ', vue' : ', pas encore vue'}`}>
+            <button key={l.lower} type="button" className={`letter-tile tile-${l.letter_class?.key ?? ''}${l.taught ? ' seen' : ''}`} onClick={() => setOpen(l)} aria-label={`${l.upper} ${l.lower}${l.taught ? ', vue' : ', pas encore vue'}`}>
               <span className="ru">{l.upper}{l.lower}</span>
               <span className="tiny">{l.taught ? (l.recognition_stage ?? 0) >= 2 ? '●●' : '●' : ''}</span>
             </button>
@@ -405,13 +419,15 @@ function AlphabetScreen({ rate }: { rate: number }) {
       </section>
       {open && (
         <section className="card" aria-live="polite">
-          <div className="letter-pair"><span className="ru big">{open.upper}</span><span className="ru big">{open.lower}</span></div>
+          <div className={`letter-pair lc-${open.letter_class?.key ?? ''}`}><span className="ru big">{open.upper}</span><span className="ru big">{open.lower}</span></div>
+          <LetterBadge cls={open.letter_class} />
+          <LatinTrap cyr={open.upper} latin={open.latin_lookalike ?? undefined} />
           <p className="meaning">{open.sound_label_fr}{open.approximation ? ' (approximation)' : ''}</p>
           <p>{open.sound_fr}</p>
           {open.latin_trap_fr && <p className="warn small">⚠️ {open.latin_trap_fr}</p>}
           <ul className="examples">
             {open.examples.map((e: any) => (
-              <li key={e.ru}><span className="ru">{e.ru}</span> — {e.fr} <button type="button" className="btn btn-ghost btn-small" onClick={() => speakRu(e.ru, rate)}>🔊</button></li>
+              <li key={e.ru}><RuWord text={e.ru} reduce highlight={open.lower} /> — {e.fr} <button type="button" className="btn btn-ghost btn-small" onClick={() => speakRu(e.ru, rate)}>🔊</button></li>
             ))}
           </ul>
         </section>

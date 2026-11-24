@@ -65,3 +65,15 @@ describe('Contenu A0 (§5, §17, AC02, AC03, AC20)', () => {
     }
   });
 });
+
+describe('Supports visuels', () => {
+  it('chaque expression a un pictogramme et chaque lettre une catégorie', async () => {
+    const { ITEM_EMOJI, ITEM_TABLES, LEXEMES: LX } = await import('../src/index.js');
+    for (const x of LX) expect(ITEM_EMOJI[x.item_id], x.item_id).toBeTruthy();
+    for (const c of TEACH_CARDS.filter((c) => c.item_type === 'letter')) expect(c.letter_class).toBeTruthy();
+    for (const [id, t] of Object.entries(ITEM_TABLES)) {
+      expect(LX.some((x) => x.item_id === id), id).toBe(true);
+      for (const r of t.rows) expect(r.cells.length).toBe(t.headers.length);
+    }
+  });
+});

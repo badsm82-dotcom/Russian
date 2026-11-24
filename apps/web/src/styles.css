@@ -88,7 +88,7 @@ p { margin: 0.4rem 0; }
 .brand { font-weight: 600; }
 .brand b { color: var(--accent); }
 .tabs { display: flex; gap: 0.25rem; overflow-x: auto; max-width: 100%; }
-@media (max-width: 520px) { .tabs { width: 100%; justify-content: space-between; } .tab { padding: 0.45rem 0.4rem; font-size: 0.9rem; } }
+@media (max-width: 520px) { .tabs { width: 100%; justify-content: space-between; flex-wrap: wrap; } .tab { padding: 0.4rem 0.35rem; font-size: 0.85rem; } }
 .tab { background: none; border: 0; padding: 0.5rem 0.75rem; border-radius: 999px; color: var(--muted); font: inherit; cursor: pointer; }
 .tab.on { background: var(--surface-2); color: var(--text); font-weight: 600; }
 
@@ -197,3 +197,80 @@ p { margin: 0.4rem 0; }
 .table th, .table td { text-align: left; padding: 0.4rem; border-bottom: 1px solid var(--border); vertical-align: top; }
 details { margin-top: 1rem; }
 summary { cursor: pointer; }
+
+/* ---- Supports visuels didactiques ---- */
+:root {
+  --stress: #b5462e;
+  --hl-bg: #fff0b3;
+  --c-vowel-hard: #1f6fb2;
+  --c-vowel-soft: #8a3fb5;
+  --c-voiced: #1d6b3a;
+  --c-voiceless: #8a5a00;
+  --c-sonorant: #00727a;
+  --c-sign: #6b6f76;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) { --stress: #ff9c7a; --hl-bg: #5a4a10; --c-vowel-hard: #7fb6ec; --c-vowel-soft: #d19af0; --c-voiced: #7fd39a; --c-voiceless: #f2c26b; --c-sonorant: #6fd6de; --c-sign: #a7afbb; }
+}
+:root[data-theme='dark'] { --stress: #ff9c7a; --hl-bg: #5a4a10; --c-vowel-hard: #7fb6ec; --c-vowel-soft: #d19af0; --c-voiced: #7fd39a; --c-voiceless: #f2c26b; --c-sonorant: #6fd6de; --c-sign: #a7afbb; }
+
+.stress { color: var(--stress); font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.15em; }
+.reduced { opacity: 0.55; border-bottom: 1px dotted currentColor; }
+.hl { background: var(--hl-bg); border-radius: 4px; padding: 0 1px; }
+.legend { margin-top: 0.6rem; }
+.word-head { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+.emoji-big { font-size: 3rem; line-height: 1; }
+.emoji-prompt { font-size: 1.4rem; }
+.choice-emoji { margin-right: 0.5rem; font-size: 1.3rem; }
+
+.letter-class { margin: 0.2rem 0 0.6rem; }
+.badge { display: inline-block; border-radius: 999px; padding: 0.15rem 0.7rem; font-size: 0.85rem; font-weight: 600; color: #fff; }
+.badge-vowel_hard { background: var(--c-vowel-hard); }
+.badge-vowel_soft { background: var(--c-vowel-soft); }
+.badge-consonant_voiced { background: var(--c-voiced); }
+.badge-consonant_voiceless { background: var(--c-voiceless); }
+.badge-consonant_sonorant { background: var(--c-sonorant); }
+.badge-sign { background: var(--c-sign); }
+:root[data-theme='dark'] .badge { color: #111; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .badge { color: #111; } }
+.lc-vowel_hard .big { color: var(--c-vowel-hard); }
+.lc-vowel_soft .big { color: var(--c-vowel-soft); }
+.lc-consonant_voiced .big { color: var(--c-voiced); }
+.lc-consonant_voiceless .big { color: var(--c-voiceless); }
+.lc-consonant_sonorant .big { color: var(--c-sonorant); }
+.lc-sign .big { color: var(--c-sign); }
+
+.latin-trap { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; background: var(--ko-bg); border-radius: 10px; padding: 0.5rem 0.8rem; margin: 0.4rem 0 0.8rem; }
+.big-trap { font-size: 2.2rem; line-height: 1; font-weight: 600; }
+.latin.big-trap { text-decoration: line-through; text-decoration-color: var(--ko); opacity: 0.7; font-family: Georgia, 'Times New Roman', serif; }
+.neq { font-size: 1.6rem; color: var(--ko); }
+
+.struct-table { margin: 0.8rem 0; padding: 0; }
+.struct-table figcaption { font-weight: 600; margin-bottom: 0.3rem; }
+.struct-table .ru { font-size: 1.15rem; }
+.row-hl td { background: var(--info-bg); }
+.gap { color: var(--muted); padding: 0 0.2rem; }
+
+.diff { margin: 0.6rem 0; padding: 0.5rem 0.7rem; background: var(--surface); border-radius: 8px; font-size: 1.2rem; }
+.diff-bad { color: var(--ko); text-decoration: line-through; }
+.diff-miss { color: var(--ok); font-weight: 700; text-decoration: underline; }
+
+.learned { list-style: none; padding: 0; display: grid; gap: 0.4rem; }
+.learned li { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; }
+.learned-visual { min-width: 2.4rem; font-size: 1.5rem; text-align: center; }
+.units { list-style: none; padding: 0; }
+.units li { display: flex; gap: 0.8rem; align-items: flex-start; position: relative; padding-bottom: 0.6rem; }
+.unit-node { flex: 0 0 2.2rem; height: 2.2rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--surface-2); border: 2px solid var(--border); }
+.units li.done .unit-node { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.units li.current .unit-node { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.unit-body { flex: 1; min-width: 0; }
+.unit-progress { height: 6px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin-top: 0.3rem; max-width: 320px; }
+.unit-progress > div { height: 100%; background: var(--primary); }
+.tile-legend .badge { font-size: 0.75rem; margin-bottom: 0.2rem; }
+.letter-tile { border-bottom-width: 4px; }
+.tile-vowel_hard { border-bottom-color: var(--c-vowel-hard); }
+.tile-vowel_soft { border-bottom-color: var(--c-vowel-soft); }
+.tile-consonant_voiced { border-bottom-color: var(--c-voiced); }
+.tile-consonant_voiceless { border-bottom-color: var(--c-voiceless); }
+.tile-consonant_sonorant { border-bottom-color: var(--c-sonorant); }
+.tile-sign { border-bottom-color: var(--c-sign); }
