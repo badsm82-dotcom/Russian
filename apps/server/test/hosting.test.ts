@@ -28,3 +28,34 @@ describe('Hébergement dans un sous-dossier (bmcg.ch/russian)', () => {
     expect(r.json().error.code).toBe('registration_closed');
   });
 });
+
+describe('Méthode de secours (PATCH/DELETE bloqués par l’hébergeur)', () => {
+  it('POST + X-HTTP-Method-Override est traité comme PATCH sur un vrai serveur HTTP', async () => {
+    const { applyMethodOverride } = await import('../src/app.js');
+    const req = { method: 'POST', headers: { 'x-http-method-override': 'patch' } as Record<string, string> };
+    applyMethodOverride(req);
+    expect(req.method).toBe('PATCH');
+    const get = { method: 'GET', headers: { 'x-http-method-override': 'DELETE' } as Record<string, string> };
+    applyMethodOverride(get);
+    expect(get.method).toBe('GET');
+
+    const open = await setupEnv(undefined, { basePath: '/russian' });
+    const address = await open.app.listen({ port: 0, host: '127.0.0.1' });
+    try {
+      const reg = await fetch(`${address}/russian/v1/auth/register`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'ovr@test.local', password: 'motdepasse-solide' }),
+      }).then((r) => r.json());
+      const r = await fetch(`${address}/russian/v1/profile`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${reg.token}`, 'x-http-method-override': 'PATCH' },
+        body: JSON.stringify({ settings: { preferred_time: '08:30:00', days_per_week: 6 }, onboarded: true }),
+      });
+      expect(r.status).toBe(200);
+      const body = await r.json();
+      expect(body.onboarded).toBe(true);
+      expect(body.settings.preferred_time).toBe('08:30');
+    } finally {
+      await open.close();
+    }
+  });
+});

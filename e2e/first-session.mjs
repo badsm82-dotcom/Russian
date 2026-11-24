@@ -12,6 +12,14 @@ const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+// BLOCK_PATCH=1 : simule un hébergeur qui refuse PATCH/DELETE (l'application doit passer par la méthode de secours).
+if (process.env.BLOCK_PATCH) {
+  await page.route('**/v1/**', (route) =>
+    ['PATCH', 'DELETE'].includes(route.request().method())
+      ? route.fulfill({ status: 405, contentType: 'text/html', body: '<h1>Method Not Allowed</h1>' })
+      : route.continue(),
+  );
+}
 const shot = async (name) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true }); };
 
 await page.goto(BASE);
@@ -22,7 +30,10 @@ await page.getByRole('button', { name: 'Commencer' }).click();
 // Onboarding (4 étapes)
 await page.getByRole('heading', { name: 'Bienvenue' }).waitFor();
 await shot('01-onboarding');
-for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Suivant' }).click();
+for (let i = 0; i < 3; i++) {
+  if (i === 2) await page.getByLabel('Horaire préféré (facultatif)').fill('08:30');
+  await page.getByRole('button', { name: 'Suivant' }).click();
+}
 await page.getByRole('button', { name: 'Commencer la première leçon' }).click();
 
 await page.getByRole('button', { name: 'Commencer ma séance' }).waitFor();

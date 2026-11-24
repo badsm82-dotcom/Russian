@@ -37,13 +37,36 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    public details: unknown = null,
   ) {
     super(message);
   }
 }
 
+/**
+ * Certains hébergements mutualisés bloquent PATCH/DELETE : on renvoie alors la requête en POST
+ * avec l'en-tête X-HTTP-Method-Override (le serveur la traite comme la méthode d'origine).
+ */
+let useOverride = false;
+
 export async function call<T = any>(method: string, url: string, body?: unknown): Promise<T> {
+  const overridable = method === 'PATCH' || method === 'DELETE';
+  if (overridable && !useOverride) {
+    try {
+      return await rawCall<T>(method, url, body);
+    } catch (e) {
+      if (!(e instanceof ApiError) || ![403, 404, 405, 501].includes(e.status) || e.code.startsWith('registration')) throw e;
+      if (e.code !== 'error' && e.code !== 'not_found') throw e; // vraie erreur applicative : ne pas réessayer
+      useOverride = true;
+    }
+  }
+  if (overridable && useOverride) return rawCall<T>('POST', url, body, method);
+  return rawCall<T>(method, url, body);
+}
+
+async function rawCall<T>(method: string, url: string, body?: unknown, override?: string): Promise<T> {
   const headers: Record<string, string> = {};
+  if (override) headers['x-http-method-override'] = override;
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (auth.token) headers.authorization = `Bearer ${auth.token}`;
   let res: Response;
@@ -56,7 +79,7 @@ export async function call<T = any>(method: string, url: string, body?: unknown)
   const data = text ? (() => { try { return JSON.parse(text); } catch { return text; } })() : null;
   if (!res.ok) {
     if (res.status === 401 && !url.startsWith('/v1/auth/')) auth.set(null);
-    throw new ApiError(res.status, data?.error?.code ?? 'error', data?.error?.message ?? `Erreur ${res.status}`);
+    throw new ApiError(res.status, data?.error?.code ?? 'error', data?.error?.message ?? `Erreur ${res.status}`, data?.error?.details ?? null);
   }
   return data as T;
 }

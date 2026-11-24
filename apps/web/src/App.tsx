@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import { api, apiUrl, auth, flushPendingAttempts } from './api';
+import { api, apiUrl, ApiError, auth, flushPendingAttempts } from './api';
+
+/** Message d'erreur lisible, avec le détail de validation renvoyé par le serveur. */
+function errorText(e: unknown): string {
+  if (e instanceof ApiError) {
+    const d = Array.isArray(e.details) ? e.details.map((x: any) => `${x.path || 'champ'} : ${x.message}`).join(' ; ') : '';
+    return `${e.message}${d ? ` (${d})` : ''} [${e.status || 'réseau'}]`;
+  }
+  return (e as Error)?.message ?? String(e);
+}
 import { SessionPlayer } from './Session';
 import { speakRu } from './speech';
 
@@ -102,11 +111,13 @@ function LanguagesEditor({ value, names, onChange }: { value: any[]; names: Reco
   );
 }
 
-function Onboarding({ profile, onDone }: { profile: any; onDone: () => void }) {
+function Onboarding({ profile, onDone }: { profile: any; onDone: () => Promise<void> | void }) {
   const [step, setStep] = useState(0);
   const [settings, setSettings] = useState(profile.settings);
   const [languages, setLanguages] = useState(profile.languages.known_languages);
   const [themes, setThemes] = useState<string>(profile.settings.interests.join(', '));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const set = (k: string, v: unknown) => setSettings({ ...settings, [k]: v });
   const steps = [
     <>
@@ -179,25 +190,43 @@ function Onboarding({ profile, onDone }: { profile: any; onDone: () => void }) {
           <button
             type="button"
             className="btn btn-primary"
+            disabled={busy}
             onClick={async () => {
               if (!last) return setStep(step + 1);
-              await api.patch('/v1/profile/languages', { known_languages: languages });
-              const interests = themes.split(',').map((t) => t.trim()).filter(Boolean);
-              await api.patch('/v1/profile', { settings: { ...pick(settings), interests }, onboarded: true, consent_version: '1' });
-              onDone();
+              setBusy(true);
+              setError(null);
+              try {
+                await api.patch('/v1/profile/languages', { known_languages: languages });
+                const interests = themes.split(',').map((t) => t.trim()).filter(Boolean);
+                await api.patch('/v1/profile', { settings: pick({ ...settings, interests }), onboarded: true, consent_version: '1' });
+                await onDone();
+              } catch (e) {
+                setError(errorText(e));
+              } finally {
+                setBusy(false);
+              }
             }}
           >
-            {last ? 'Commencer la première leçon' : 'Suivant'}
+            {busy ? 'Enregistrement…' : last ? 'Commencer la première leçon' : 'Suivant'}
           </button>
         </div>
+        {error && <p className="warn" role="alert">{error}</p>}
       </div>
     </main>
   );
 }
 
 const SETTING_KEYS = ['daily_minutes', 'days_per_week', 'preferred_time', 'timezone', 'interests', 'personal_context_enabled', 'microphone_consent', 'transliteration', 'show_stress_marks', 'correction_timing', 'font_scale', 'theme', 'notifications_enabled', 'bridges_enabled', 'audio_rate', 'manual_difficulty'];
+/** Nettoie les réglages avant envoi (champs vides, heure avec secondes, bornes). */
 function pick(s: any) {
-  return Object.fromEntries(SETTING_KEYS.filter((k) => k in s).map((k) => [k, s[k]]));
+  const out: any = Object.fromEntries(SETTING_KEYS.filter((k) => k in s).map((k) => [k, s[k]]));
+  const days = Math.round(Number(out.days_per_week));
+  out.days_per_week = Number.isFinite(days) ? Math.min(7, Math.max(1, days)) : 6;
+  out.preferred_time = typeof out.preferred_time === 'string' && /^\d{2}:\d{2}/.test(out.preferred_time) ? out.preferred_time.slice(0, 5) : null;
+  out.timezone = typeof out.timezone === 'string' && out.timezone.trim() ? out.timezone.trim() : 'Europe/Zurich';
+  out.font_scale = Math.min(1.8, Math.max(0.8, Number(out.font_scale) || 1));
+  if (Array.isArray(out.interests)) out.interests = out.interests.map((t: string) => t.trim().slice(0, 60)).filter(Boolean).slice(0, 30);
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +236,7 @@ function Home({ profile, onStart }: { profile: any; onStart: (id: string) => voi
   const [analytics, setAnalytics] = useState<any>(null);
   const [curriculum, setCurriculum] = useState<any>(null);
   const [busy, setBusy] = useState(false);
+  const [homeError, setHomeError] = useState<string | null>(null);
   useEffect(() => {
     api.get('/v1/sessions/current').then((r) => setCurrent(r.session));
     api.get('/v1/analytics').then(setAnalytics);
@@ -222,7 +252,7 @@ function Home({ profile, onStart }: { profile: any; onStart: (id: string) => voi
             <p>Une séance est en cours ({current.cursor}/{current.steps.length}). Tu reprends exactement où tu t’es arrêté·e.</p>
             <div className="actions">
               <button type="button" className="btn btn-primary btn-large" onClick={() => onStart(current.id)}>Reprendre ma séance</button>
-              <button type="button" className="btn btn-ghost" disabled={busy} onClick={async () => { setBusy(true); const r = await api.post('/v1/sessions', { minutes, replace: true }); onStart(r.session.id); }}>
+              <button type="button" className="btn btn-ghost" disabled={busy} onClick={async () => { setBusy(true); try { const r = await api.post('/v1/sessions', { minutes, replace: true }); onStart(r.session.id); } catch (e) { setHomeError(errorText(e)); } finally { setBusy(false); } }}>
                 Nouvelle séance
               </button>
             </div>
@@ -238,11 +268,12 @@ function Home({ profile, onStart }: { profile: any; onStart: (id: string) => voi
                 </label>
               ))}
             </fieldset>
-            <button type="button" className="btn btn-primary btn-large" disabled={busy} onClick={async () => { setBusy(true); try { const r = await api.post('/v1/sessions', { minutes }); onStart(r.session.id); } finally { setBusy(false); } }}>
+            <button type="button" className="btn btn-primary btn-large" disabled={busy} onClick={async () => { setBusy(true); try { const r = await api.post('/v1/sessions', { minutes }); onStart(r.session.id); } catch (e) { setHomeError(errorText(e)); } finally { setBusy(false); } }}>
               Commencer ma séance
             </button>
           </>
         )}
+        {homeError && <p className="warn" role="alert">{homeError}</p>}
         {analytics && <p className="small muted">{analytics.next_action_fr}</p>}
       </section>
       {unit && (
@@ -436,6 +467,7 @@ function SettingsScreen({ profile, onChange, onLogout }: { profile: any; onChang
   const [langs, setLangs] = useState(profile.languages.known_languages);
   const [saved, setSaved] = useState(false);
   const [confirm, setConfirm] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const set = (k: string, v: unknown) => { setS({ ...s, [k]: v }); setSaved(false); };
   const download = async (format: 'json' | 'csv') => {
     const res = await fetch(apiUrl(`/v1/export?format=${format}`), { headers: { authorization: `Bearer ${auth.token}` } });
@@ -484,12 +516,18 @@ function SettingsScreen({ profile, onChange, onLogout }: { profile: any; onChang
         <LanguagesEditor value={langs} names={profile.language_names_fr} onChange={(v) => { setLangs(v); setSaved(false); }} />
         <div className="actions">
           <button type="button" className="btn btn-primary" onClick={async () => {
-            await api.patch('/v1/profile', { settings: pick(s) });
-            await api.patch('/v1/profile/languages', { known_languages: langs });
-            setSaved(true);
-            onChange();
+            setSaveError(null);
+            try {
+              await api.patch('/v1/profile', { settings: pick(s) });
+              await api.patch('/v1/profile/languages', { known_languages: langs });
+              setSaved(true);
+              onChange();
+            } catch (e) {
+              setSaveError(errorText(e));
+            }
           }}>Enregistrer</button>
           {saved && <span className="ok-text" role="status">Enregistré.</span>}
+          {saveError && <span className="warn" role="alert">{saveError}</span>}
         </div>
       </section>
       <section className="card">
@@ -503,7 +541,7 @@ function SettingsScreen({ profile, onChange, onLogout }: { profile: any; onChang
           <summary>Supprimer mon compte</summary>
           <p className="small">Suppression définitive de toutes tes données. Tape <strong>SUPPRIMER</strong> pour confirmer.</p>
           <input className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-label="Confirmation" />
-          <button type="button" className="btn btn-danger" disabled={confirm !== 'SUPPRIMER'} onClick={async () => { await api.del('/v1/account', { confirm }); auth.set(null); onLogout(); }}>
+          <button type="button" className="btn btn-danger" disabled={confirm !== 'SUPPRIMER'} onClick={async () => { try { await api.del('/v1/account', { confirm }); auth.set(null); onLogout(); } catch (e) { setSaveError(errorText(e)); } }}>
             Supprimer définitivement
           </button>
         </details>
@@ -520,7 +558,7 @@ export function App() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProfile = () =>
+  const loadProfile = (): Promise<void> =>
     api
       .get('/v1/profile')
       .then((p) => {

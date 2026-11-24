@@ -13,7 +13,7 @@ const settingsPatch = z
   .object({
     daily_minutes: z.union([z.literal(5), z.literal(15), z.literal(25), z.literal(35), z.literal(60)]),
     days_per_week: z.number().int().min(1).max(7),
-    preferred_time: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
+    preferred_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).transform((t) => t.slice(0, 5)).nullable(),
     timezone: z.string().min(1).max(64),
     interests: z.array(z.string().trim().min(1).max(60)).max(30),
     personal_context_enabled: z.boolean(),

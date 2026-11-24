@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { AppContext } from './context.js';
@@ -11,9 +12,21 @@ import { registerCurriculum } from './modules/curriculum.js';
 import { registerProfile } from './modules/profile.js';
 import { registerSessions } from './modules/sessions.js';
 
+export function applyMethodOverride(req: { method?: string; headers: Record<string, string | string[] | undefined> }): void {
+  const o = req.headers['x-http-method-override'];
+  const m = (Array.isArray(o) ? o[0] : o)?.toUpperCase();
+  if (req.method === 'POST' && (m === 'PATCH' || m === 'DELETE')) req.method = m;
+}
+
 export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
   const base = ctx.config.basePath;
   const app = Fastify({
+    // Méthode de secours : POST + X-HTTP-Method-Override (PATCH/DELETE bloqués par certains hébergeurs).
+    serverFactory: (handler) =>
+      createServer((req: IncomingMessage, res: ServerResponse) => {
+        applyMethodOverride(req);
+        handler(req, res);
+      }),
     // Hébergement dans un sous-dossier (ex. bmcg.ch/russian) : le préfixe est retiré s'il est transmis par le serveur web.
     rewriteUrl: (req) => {
       const url = req.url ?? '/';
