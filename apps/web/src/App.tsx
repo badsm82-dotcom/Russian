@@ -308,7 +308,7 @@ function PathScreen() {
   return (
     <div className="stack">
       <section className="card">
-        <h2>Semaine 1 — fondation A0</h2>
+        <h2>Mois 1 — fondation A0</h2>
         <ol className="units">
           {c.units.map((u: any) => (
             <li key={u.id} className={u.current ? 'current' : u.locked ? 'locked' : u.completed ? 'done' : ''}>
@@ -331,7 +331,7 @@ function PathScreen() {
                   <td className="small">{m.content_fr}</td>
                   <td className="small">{m.mission_fr}</td>
                   <td>{m.active} / {m.receptive}</td>
-                  <td className="small">{m.content_available === 'partial' ? 'Semaine 1' : 'À venir'}</td>
+                  <td className="small">{m.content_available === 'available' ? 'Disponible' : 'À venir'}</td>
                 </tr>
               ))}
             </tbody>

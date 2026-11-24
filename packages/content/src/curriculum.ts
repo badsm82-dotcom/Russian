@@ -59,10 +59,15 @@ const UNIT_META: { title_fr: string; mission_fr: string }[] = [
   { title_fr: 'Chuintantes : Ж Ш Ч Щ Ц', mission_fr: 'Discriminer ж/ш/ч/щ/ц ; commander un thé ou un café.' },
   { title_fr: 'Ы Э Ь Ъ', mission_fr: 'Distinguer ы et и ; signes sans son ; se présenter en quelques mots.' },
   { title_fr: 'Consolidation : les 33 lettres', mission_fr: 'Majuscules/minuscules, mots inédits, dictée simple.' },
+  { title_fr: 'Je, tu, vous : se présenter', mission_fr: 'Saluer poliment, demander et dire son prénom, tutoyer ou vouvoyer.' },
+  { title_fr: 'Qui ? Quoi ? Sans verbe « être »', mission_fr: 'Dire « c’est… », « il est… » sans verbe être ; poser des questions simples.' },
+  { title_fr: 'Vouloir, refuser, demander', mission_fr: 'Proposer et accepter une boisson ; dire non poliment.' },
+  { title_fr: 'Besoins et demandes polies', mission_fr: 'S’excuser, demander où se trouve quelque chose, le prix, exprimer un besoin.' },
+  { title_fr: 'Dialogue guidé : au café', mission_fr: 'Tenir un court dialogue (30–60 s) : saluer, commander, remercier, demander les toilettes.' },
 ];
 
 export function unitId(n: number): string {
-  return `A0-0${n}`;
+  return `A0-${String(n).padStart(2, '0')}`;
 }
 
 const lettersOfGroup = (g: number) => LETTERS.filter((l) => l.group === g);
@@ -317,6 +322,7 @@ function transferExercises(): ExerciseDef[] {
 
 function lexemeExercises(x: LexemeDef): ExerciseDef[] {
   const out: ExerciseDef[] = [];
+  if (x.generate === false) return out;
   const others = LEXEMES.filter((o) => o.item_id !== x.item_id && o.unit <= Math.max(x.unit, 2));
   const distract = shuffle(others, x.item_id).slice(0, 3);
   const meaningChoices = shuffle([x, ...distract].map((o) => ({ id: o.item_id, label: o.fr })), `mean_${x.item_id}`);
@@ -412,12 +418,89 @@ function consolidationExercises(): ExerciseDef[] {
   return out;
 }
 
+/** Semaines 2 à 4 du mois 1 (§4) : structures en contexte, transfert, lecture de phrases, dialogue guidé. */
+function monthOneExercises(): ExerciseDef[] {
+  const cyr = (slug: string, item_id: string, competency: Competency, type: ExerciseType, prompt_fr: string, accepted: string[], o: Partial<ExInput> = {}) =>
+    build({ slug, type, item_id, competency, prompt_fr, stimulus: o.stimulus ?? {}, answer: { kind: 'cyrillic', accepted }, writes: [accepted[0]!], difficulty: o.difficulty ?? 3, ...o });
+  const mcq = (slug: string, item_id: string, prompt_fr: string, stimulus: ExerciseDef['stimulus'], options: { id: string; label: string; ru?: string }[], correct: string, o: Partial<ExInput> = {}) =>
+    build({ slug, type: o.type ?? 'lexical_recognition', item_id, competency: o.competency ?? 'recognition', prompt_fr, stimulus, choices: shuffle(options, slug), answer: { kind: 'choice', correct }, difficulty: o.difficulty ?? 2, ...o });
+  const shown = (ru: string): Partial<ExInput> => ({ stimulus: { ru, audio_text: stripStressMarks(ru), show_text_before_answer: true }, reads: [ru] });
+  return [
+    // A0-08 — je / tu / vous
+    mcq('register_vy_teacher', 'lex:vy', 'Tu parles à une personne que tu ne connais pas (un serveur, un collègue). Tu utilises…', {},
+      [{ id: 'vy', label: 'вы', ru: 'вы' }, { id: 'ty', label: 'ты', ru: 'ты' }], 'vy', { explanation_fr: 'Avec un inconnu ou par politesse : вы, comme « vous ».' }),
+    mcq('register_ty_friend', 'lex:ty', 'Tu parles à un ami proche. Tu utilises…', {},
+      [{ id: 'ty', label: 'ты', ru: 'ты' }, { id: 'vy', label: 'вы', ru: 'вы' }], 'ty', { explanation_fr: 'Entre amis : ты, comme « tu ».' }),
+    cyr('transform_tebya_vas', 'struct:kak_vas_zovut', 'production', 'transformation', 'Passe au vouvoiement : Как тебя́ зову́т?', ['Как вас зовут?'],
+      { ...shown('Как тебя́ зову́т?'), requires_items: ['struct:kak_tebya_zovut'], explanation_fr: 'тебя́ (toi) → вас (vous) : Как вас зову́т?' }),
+    cyr('build_zdravstvuyte_anna', 'lex:zdravstvuyte', 'transfer', 'active_recall', 'Présente-toi poliment : « Bonjour, je m’appelle Anna. »',
+      ['Здравствуйте, меня зовут Анна', 'Здравствуйте, я Анна'], { requires_items: ['struct:menya_zovut'], explanation_fr: 'Здра́вствуйте! Меня́ зову́т А́нна.' }),
+    cyr('reply_ochen_priyatno', 'struct:ochen_priyatno', 'transfer', 'active_recall', 'On te dit « Меня́ зову́т И́ра. » Réponds « Enchanté ! »', ['Очень приятно'],
+      { ...shown('Меня́ зову́т И́ра.'), requires_items: ['struct:menya_zovut'], explanation_fr: 'О́чень прия́тно!' }),
+    // A0-09 — sans verbe « être »
+    cyr('fill_kto_eto', 'lex:kto', 'production', 'fill_blank', 'Complète : ___ э́то? — Э́то ма́ма. (Qui est-ce ?)', ['Кто'],
+      { ...shown('___ э́то? — Э́то ма́ма.'), requires_items: ['lex:eto'], difficulty: 2, explanation_fr: 'Кто э́то? = Qui est-ce ?' }),
+    cyr('build_chto_eto', 'lex:chto', 'transfer', 'active_recall', 'Demande : « Qu’est-ce que c’est ? »', ['Что это?'],
+      { requires_items: ['lex:eto'], explanation_fr: 'Что э́то? — sans verbe « être ».' }),
+    cyr('build_on_drug', 'lex:on', 'transfer', 'active_recall', 'Écris en russe : « C’est un ami. » en commençant par « il ».', ['Он друг'],
+      { requires_items: ['lex:drug'], explanation_fr: 'Он друг : ni verbe « être » ni article.' }),
+    cyr('build_ona_mama', 'lex:ona', 'transfer', 'active_recall', 'Écris en russe : « Elle est maman. »', ['Она мама'],
+      { explanation_fr: 'Она́ ма́ма.' }),
+    mcq('read_eto_moy_drug', 'lex:drug', 'Que veut dire cette phrase ?', { ru: 'Э́то мой друг.', show_text_before_answer: true },
+      [{ id: 'a', label: 'C’est mon ami.' }, { id: 'b', label: 'Où est mon ami ?' }, { id: 'c', label: 'Je veux un ami.' }], 'a',
+      { reads: ['Э́то мой друг.'], requires_items: ['lex:eto'], competency: 'recognition' }),
+    // A0-10 — vouloir, négation, questions
+    cyr('fill_ty_khochesh', 'lex:khochesh', 'production', 'fill_blank', 'Complète « Tu veux un café ? » : Ты ___ ко́фе?', ['хочешь'],
+      { ...shown('Ты ___ ко́фе?'), requires_items: ['lex:kofe'], difficulty: 2, explanation_fr: 'я хочу́ → ты хо́чешь.' }),
+    cyr('fill_vy_khotite', 'lex:khotite', 'production', 'fill_blank', 'Complète « Voulez-vous du thé ? » : Вы ___ чай?', ['хотите'],
+      { ...shown('Вы ___ чай?'), requires_items: ['lex:chai'], difficulty: 2, explanation_fr: 'я хочу́ → вы хоти́те.' }),
+    cyr('transform_question_sok', 'lex:khochesh', 'transfer', 'transformation', 'Transforme en question à « tu » : Я хочу́ сок.', ['Ты хочешь сок?'],
+      { ...shown('Я хочу́ сок.'), requires_items: ['lex:sok', 'struct:ya_khochu'], explanation_fr: 'Même ordre des mots, intonation montante : Ты хо́чешь сок?' }),
+    cyr('reply_net_vino', 'lex:vino', 'transfer', 'active_recall', 'On te demande « Вы хоти́те вино́? ». Réponds : « Non, je ne veux pas de vin. »',
+      ['Нет, я не хочу вино', 'Нет, не хочу вино', 'Нет, я не хочу', 'Нет, спасибо, я не хочу вино'],
+      { ...shown('Вы хоти́те вино́?'), requires_items: ['lex:net', 'lex:ne', 'struct:ya_khochu', 'lex:khotite'], explanation_fr: 'Нет, я не хочу́ вино́.' }),
+    mcq('read_eto_voda', 'lex:voda', 'Que dit cette phrase ?', { ru: 'Э́то вода́.', show_text_before_answer: true },
+      [{ id: 'a', label: 'C’est de l’eau.' }, { id: 'b', label: 'Je veux de l’eau.' }, { id: 'c', label: 'Où est l’eau ?' }], 'a',
+      { reads: ['Э́то вода́.'], requires_items: ['lex:eto'] }),
+    // A0-11 — besoins et demandes polies
+    cyr('build_gde_tualet', 'lex:gde', 'transfer', 'active_recall', 'Demande : « Où sont les toilettes ? »', ['Где туалет?'],
+      { requires_items: ['lex:tualet'], explanation_fr: 'Где туале́т? — sans verbe.' }),
+    cyr('fill_izvinite', 'lex:izvinite', 'production', 'fill_blank', 'Complète poliment : ___, где туале́т? (Excusez-moi…)', ['Извините'],
+      { ...shown('___, где туале́т?'), requires_items: ['lex:gde', 'lex:tualet'], difficulty: 2, explanation_fr: 'Извини́те, где туале́т?' }),
+    cyr('build_kofe_pozhaluysta', 'lex:pozhaluysta', 'transfer', 'active_recall', 'Commande poliment : « Un café, s’il vous plaît. »', ['Кофе, пожалуйста', 'Пожалуйста, кофе'],
+      { requires_items: ['lex:kofe'], explanation_fr: 'Ко́фе, пожа́луйста.' }),
+    cyr('build_skolko_stoit_chai', 'struct:skolko_stoit', 'transfer', 'active_recall', 'Demande : « Combien coûte le thé ? »', ['Сколько стоит чай?'],
+      { requires_items: ['lex:chai'], explanation_fr: 'Ско́лько сто́ит чай?' }),
+    cyr('build_mne_nuzhno_tualet', 'struct:mne_nuzhno', 'transfer', 'active_recall', 'Dis : « J’ai besoin d’aller aux toilettes. »', ['Мне нужно в туалет'],
+      { requires_items: ['lex:tualet'], explanation_fr: 'Мне ну́жно в туале́т (expression figée).' }),
+    // A0-12 — dialogue guidé au café (30–60 s)
+    mcq('dialog_listen_chto_vy_khotite', 'struct:dialog_kafe', 'Le serveur te parle. Écoute : que te demande-t-il ?', { audio_text: 'Здравствуйте! Что вы хотите?', show_text_before_answer: false },
+      [{ id: 'a', label: 'Bonjour ! Que désirez-vous ?' }, { id: 'b', label: 'Bonjour ! Comment vous appelez-vous ?' }, { id: 'c', label: 'Bonjour ! Combien ça coûte ?' }], 'a',
+      { type: 'listening', competency: 'listening', explanation_fr: 'Что вы хоти́те? = Que voulez-vous ?' }),
+    cyr('dialog_reply_order', 'struct:dialog_kafe', 'transfer', 'active_recall', 'Le serveur : « Здра́вствуйте! Что вы хоти́те? » Salue et commande un café poliment.',
+      ['Здравствуйте, кофе, пожалуйста', 'Здравствуйте, я хочу кофе', 'Здравствуйте, я хочу кофе, пожалуйста', 'Кофе, пожалуйста', 'Я хочу кофе, пожалуйста', 'Я хочу кофе'],
+      { ...shown('Здра́вствуйте! Что вы хоти́те?'), requires_items: ['lex:zdravstvuyte', 'lex:khotite', 'lex:pozhaluysta', 'lex:kofe'], explanation_fr: 'Здра́вствуйте. Ко́фе, пожа́луйста.' }),
+    cyr('dialog_reply_thanks', 'struct:dialog_kafe', 'transfer', 'active_recall', 'Le serveur pose la tasse : « Вот ко́фе. » Remercie-le.', ['Спасибо'],
+      { ...shown('Вот ко́фе.'), requires_items: ['lex:spasibo'], difficulty: 2, explanation_fr: 'Спаси́бо!' }),
+    cyr('dialog_ask_toilets', 'struct:dialog_kafe', 'transfer', 'active_recall', 'Interpelle poliment le serveur et demande où sont les toilettes.', ['Извините, где туалет?', 'Где туалет?'],
+      { requires_items: ['lex:izvinite', 'lex:gde', 'lex:tualet'], explanation_fr: 'Извини́те, где туале́т?' }),
+    mcq('dialog_read_comprehension', 'struct:dialog_kafe', 'Lis le dialogue. Que commande le client ?',
+      { ru: '— Здра́вствуйте! Что вы хоти́те? — Здра́вствуйте. Ко́фе, пожа́луйста. — Вот ко́фе. — Спаси́бо!', show_text_before_answer: true },
+      [{ id: 'kofe', label: 'Un café' }, { id: 'chai', label: 'Un thé' }, { id: 'vino', label: 'Du vin' }, { id: 'voda', label: 'De l’eau' }], 'kofe',
+      { reads: ['— Здра́вствуйте! Что вы хоти́те? — Здра́вствуйте. Ко́фе, пожа́луйста. — Вот ко́фе. — Спаси́бо!'],
+        requires_items: ['lex:zdravstvuyte', 'lex:khotite', 'lex:pozhaluysta', 'lex:kofe', 'lex:spasibo'] }),
+    cyr('dialog_dictation_gde_tualet', 'struct:dialog_kafe', 'spelling', 'dictation', 'Dictée : écoute et écris la phrase en cyrillique.', ['Где туалет?'],
+      { stimulus: { audio_text: 'Где туалет?', show_text_before_answer: false }, requires_items: ['lex:gde', 'lex:tualet'], explanation_fr: 'Где туале́т?' }),
+  ];
+}
+
 export const EXERCISES: ExerciseDef[] = [
   ...LETTERS.flatMap(letterExercises),
   ...transferExercises(),
   ...LEXEMES.flatMap(lexemeExercises),
   ...structureExercises(),
   ...consolidationExercises(),
+  ...monthOneExercises(),
 ];
 
 export const SPEAKABLE_ITEMS: ReadonlySet<string> = new Set(LEXEMES.map((x) => x.item_id));

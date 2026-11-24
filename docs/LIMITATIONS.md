@@ -10,8 +10,9 @@
   interne (р / espagnol) reste en brouillon et n'est jamais affichée.
 
 ## Contenu
-- Seule la **semaine 1** (fondation A0 : 33 lettres, 13 expressions/structures) est disponible.
-  Les unités A1/A2 et les mois 2 à 12 restent à produire ; le parcours annuel est affiché comme indicatif, marqué « À venir ».
+- Seul le **mois 1** est disponible : semaine 1 (33 lettres, 13 expressions, unités A0-01 à A0-07) et semaines 2 à 4
+  (unités A0-08 à A0-12 : je/tu/vous, phrases sans « être », vouloir, négation, besoins, dialogue guidé au café).
+  Les mois 2 à 12 restent à produire ; le parcours annuel est affiché comme indicatif.
 - Pas de banque de dialogues ni de textes de lecture (cible §17 : 10 + 10).
 
 ## Audio et oral

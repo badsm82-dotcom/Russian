@@ -33,9 +33,8 @@ export interface NormalizeOptions {
 export function normalizeAnswer(input: string, opts: NormalizeOptions = {}): string {
   let s = stripStressMarks(nfc(input));
   s = s.replace(/[ \s]+/g, ' ').trim();
-  // Ponctuation de fin et guillemets sans incidence sur la forme attendue.
-  s = s.replace(/[.!?…,;:«»"“”„]+$/u, '').replace(/^[«"“„]+/u, '').trim();
-  s = s.replace(/\s+([?!.,])/g, '$1');
+  // La ponctuation n'est jamais l'objet de l'exercice : virgules, points, tirets de dialogue, guillemets ignorés.
+  s = s.replace(/[.!?…,;:«»"“”„—–]+/gu, ' ').replace(/\s+/g, ' ').trim();
   if (!opts.caseSensitive) s = s.toLocaleLowerCase('ru');
   if (!opts.distinguishYo) s = s.replace(/ё/g, 'е').replace(/Ё/g, 'Е');
   return s;

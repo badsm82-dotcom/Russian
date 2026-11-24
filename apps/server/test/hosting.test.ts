@@ -44,14 +44,14 @@ describe('Méthode de secours (PATCH/DELETE bloqués par l’hébergeur)', () =>
     try {
       const reg = await fetch(`${address}/russian/v1/auth/register`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'ovr@test.local', password: 'motdepasse-solide' }),
-      }).then((r) => r.json());
+      }).then((r) => r.json() as Promise<any>);
       const r = await fetch(`${address}/russian/v1/profile`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${reg.token}`, 'x-http-method-override': 'PATCH' },
         body: JSON.stringify({ settings: { preferred_time: '08:30:00', days_per_week: 6 }, onboarded: true }),
       });
       expect(r.status).toBe(200);
-      const body = await r.json();
+      const body = (await r.json()) as any;
       expect(body.onboarded).toBe(true);
       expect(body.settings.preferred_time).toBe('08:30');
     } finally {

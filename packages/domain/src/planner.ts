@@ -105,6 +105,8 @@ export function phaseBudget(minutes: SessionMinutes): { review: number; discover
 /** Une unité est complétée quand ses items sont enseignés et qu'une part suffisante a déjà un rappel/reconnaissance autonome. */
 export function unitCompleted(unit: UnitDef, taught: ReadonlySet<string>, states: readonly ReviewState[], threshold = 0.8): boolean {
   if (!unit.items.every((i) => taught.has(i))) return false;
+  // Unité sans nouvel item (consolidation) : elle ne bloque pas la suite ; ses exercices restent proposés.
+  if (unit.items.length === 0) return true;
   const succeeded = new Set(states.filter((s) => s.stage >= 1).map((s) => s.item_id));
   const n = unit.items.filter((i) => succeeded.has(i)).length;
   return n / Math.max(1, unit.items.length) >= threshold;

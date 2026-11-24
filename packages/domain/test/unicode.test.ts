@@ -45,3 +45,10 @@ describe('Translittération (aide temporaire)', () => {
     expect(displayTransliteration('Привет')).toBe('Privie' + 't');
   });
 });
+
+describe('Ponctuation ignorée', () => {
+  it('virgules, points d’exclamation et tirets de dialogue ne comptent pas', () => {
+    expect(normalizeAnswer('Здра́вствуйте, ко́фе, пожа́луйста!')).toBe(normalizeAnswer('здравствуйте кофе пожалуйста'));
+    expect(normalizeAnswer('— Где туале́т?')).toBe('где туалет');
+  });
+});

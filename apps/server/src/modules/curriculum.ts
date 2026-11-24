@@ -43,9 +43,9 @@ export function registerCurriculum(app: FastifyInstance, ctx: AppContext): void 
     }));
     return {
       units,
-      roadmap: ROADMAP.map((m) => ({ ...m, content_available: m.month === 1 ? 'partial' : 'not_yet' })),
+      roadmap: ROADMAP.map((m) => ({ ...m, content_available: m.month === 1 ? 'available' : 'not_yet' })),
       note_fr:
-        'Les semaines sont des repères, pas des verrous : on passe à la suite quand les prérequis sont consolidés. Contenu disponible : semaine 1 (alphabet et premières formules) ; le reste du parcours annuel est à produire et à valider.',
+        'Les semaines sont des repères, pas des verrous : on passe à la suite quand les prérequis sont consolidés. Contenu disponible : mois 1 (alphabet, se présenter, vouloir, besoins, dialogue au café) ; les mois suivants sont à produire et à valider.',
     };
   });
 
