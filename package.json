@@ -1,0 +1,28 @@
+{
+  "name": "russian-365",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Russian 365 — professeur numérique adaptatif de russe pour francophones, départ A0 intégral",
+  "workspaces": ["packages/*", "apps/*"],
+  "engines": { "node": ">=22.12" },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:domain": "vitest run packages",
+    "test:integration": "vitest run apps/server",
+    "content:check": "tsx packages/content/src/cli-check.ts",
+    "db:migrate": "npm run migrate -w @r365/server",
+    "db:seed": "npm run seed -w @r365/server",
+    "dev:server": "npm run dev -w @r365/server",
+    "dev:web": "npm run dev -w @r365/web",
+    "build:web": "npm run build -w @r365/web",
+    "start": "npm run start -w @r365/server"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
