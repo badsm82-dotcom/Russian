@@ -58,4 +58,22 @@ describe('Méthode de secours (PATCH/DELETE bloqués par l’hébergeur)', () =>
       await open.close();
     }
   });
+
+  it('les routes PATCH/DELETE acceptent aussi POST (hébergeur qui coupe PATCH)', async () => {
+    const open = await setupEnv(undefined, { basePath: '/russian' });
+    try {
+      const reg = await open.app.inject({ method: 'POST', url: '/russian/v1/auth/register', payload: { email: 'post@test.local', password: 'motdepasse-solide' } });
+      const token = reg.json().token;
+      const h = { authorization: `Bearer ${token}` };
+      const r = await open.app.inject({ method: 'POST', url: '/russian/v1/profile', headers: h, payload: { settings: { theme: 'dark' }, onboarded: true } });
+      expect(r.statusCode).toBe(200);
+      expect(r.json().settings.theme).toBe('dark');
+      const l = await open.app.inject({ method: 'POST', url: '/russian/v1/profile/languages', headers: h, payload: { known_languages: [{ code: 'fr', proficiency: 'fluent', bridges_enabled: true }] } });
+      expect(l.statusCode).toBe(200);
+      const d = await open.app.inject({ method: 'POST', url: '/russian/v1/account', headers: h, payload: { confirm: 'SUPPRIMER' } });
+      expect(d.json().deleted).toBe(true);
+    } finally {
+      await open.close();
+    }
+  });
 });

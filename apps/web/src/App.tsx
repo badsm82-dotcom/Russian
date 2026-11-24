@@ -120,7 +120,11 @@ function Onboarding({ profile, onDone }: { profile: any; onDone: () => Promise<v
   const [themes, setThemes] = useState<string>(profile.settings.interests.join(', '));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const set = (k: string, v: unknown) => setSettings({ ...settings, [k]: v });
+  const set = (k: string, v: unknown) => {
+    const next = { ...settings, [k]: v };
+    setSettings(next);
+    if (k === 'theme' || k === 'font_scale') applyTheme(next.theme, next.font_scale); // aperçu immédiat
+  };
   const steps = [
     <>
       <h2>Bienvenue</h2>
@@ -524,7 +528,12 @@ function SettingsScreen({ profile, onChange, onLogout }: { profile: any; onChang
   const [saved, setSaved] = useState(false);
   const [confirm, setConfirm] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
-  const set = (k: string, v: unknown) => { setS({ ...s, [k]: v }); setSaved(false); };
+  const set = (k: string, v: unknown) => {
+    const next = { ...s, [k]: v };
+    setS(next);
+    setSaved(false);
+    if (k === 'theme' || k === 'font_scale') applyTheme(next.theme, next.font_scale); // aperçu immédiat
+  };
   const download = async (format: 'json' | 'csv') => {
     const res = await fetch(apiUrl(`/v1/export?format=${format}`), { headers: { authorization: `Bearer ${auth.token}` } });
     const blob = await res.blob();

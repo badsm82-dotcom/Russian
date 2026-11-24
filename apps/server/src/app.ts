@@ -57,6 +57,13 @@ export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {})
     return { ok: true };
   });
 
+  // Certains hébergeurs coupent la connexion sur PATCH/DELETE : chaque route PATCH/DELETE accepte aussi POST
+  // (aucune route POST n'existe sur ces mêmes adresses).
+  app.addHook('onRoute', (route) => {
+    const m = route.method;
+    if ((m === 'PATCH' || m === 'DELETE') && route.url.startsWith('/v1/')) route.method = [m, 'POST'];
+  });
+
   registerAuth(app, ctx);
   registerProfile(app, ctx);
   registerCurriculum(app, ctx);

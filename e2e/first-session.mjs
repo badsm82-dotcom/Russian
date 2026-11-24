@@ -16,7 +16,7 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 if (process.env.BLOCK_PATCH) {
   await page.route('**/v1/**', (route) =>
     ['PATCH', 'DELETE'].includes(route.request().method())
-      ? route.fulfill({ status: 405, contentType: 'text/html', body: '<h1>Method Not Allowed</h1>' })
+      ? route.abort('connectionreset') // comme l'hébergeur : connexion coupée, aucune réponse
       : route.continue(),
   );
 }
@@ -34,6 +34,9 @@ for (let i = 0; i < 3; i++) {
   if (i === 2) await page.getByLabel('Horaire préféré (facultatif)').fill('08:30');
   await page.getByRole('button', { name: 'Suivant' }).click();
 }
+await page.getByLabel('Thème d’affichage').selectOption('dark');
+const darkNow = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+if (darkNow !== 'dark') { console.error('Le mode sombre ne s’applique pas immédiatement'); process.exit(1); }
 await page.getByRole('button', { name: 'Commencer la première leçon' }).click();
 
 await page.getByRole('button', { name: 'Commencer ma séance' }).waitFor();

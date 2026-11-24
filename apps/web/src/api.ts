@@ -44,23 +44,11 @@ export class ApiError extends Error {
 }
 
 /**
- * Certains hébergements mutualisés bloquent PATCH/DELETE : on renvoie alors la requête en POST
- * avec l'en-tête X-HTTP-Method-Override (le serveur la traite comme la méthode d'origine).
+ * Certains hébergements mutualisés coupent la connexion sur PATCH/DELETE : on envoie toujours un POST,
+ * avec l'en-tête X-HTTP-Method-Override (le serveur accepte POST sur ces routes).
  */
-let useOverride = false;
-
 export async function call<T = any>(method: string, url: string, body?: unknown): Promise<T> {
-  const overridable = method === 'PATCH' || method === 'DELETE';
-  if (overridable && !useOverride) {
-    try {
-      return await rawCall<T>(method, url, body);
-    } catch (e) {
-      if (!(e instanceof ApiError) || ![403, 404, 405, 501].includes(e.status) || e.code.startsWith('registration')) throw e;
-      if (e.code !== 'error' && e.code !== 'not_found') throw e; // vraie erreur applicative : ne pas réessayer
-      useOverride = true;
-    }
-  }
-  if (overridable && useOverride) return rawCall<T>('POST', url, body, method);
+  if (method === 'PATCH' || method === 'DELETE') return rawCall<T>('POST', url, body, method);
   return rawCall<T>(method, url, body);
 }
 
