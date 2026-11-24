@@ -4,8 +4,13 @@
   "type": "module",
   "version": "0.1.0",
   "description": "Russian 365 — professeur numérique adaptatif de russe pour francophones, départ A0 intégral",
-  "workspaces": ["packages/*", "apps/*"],
-  "engines": { "node": ">=22.12" },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
@@ -21,6 +26,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.19.0",
+    "esbuild": "^0.25.12",
     "tsx": "^4.20.0",
     "typescript": "~5.9.3",
     "vitest": "^3.2.4"

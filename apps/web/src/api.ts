@@ -28,6 +28,10 @@ export const auth = {
   },
 };
 
+/** Préfixe de l'application (« / » ou « /russian/ »), fourni par Vite. */
+export const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+export const apiUrl = (u: string) => `${BASE}${u}`;
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -44,7 +48,7 @@ export async function call<T = any>(method: string, url: string, body?: unknown)
   if (auth.token) headers.authorization = `Bearer ${auth.token}`;
   let res: Response;
   try {
-    res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(apiUrl(url), { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   } catch {
     throw new ApiError(0, 'network', 'Connexion impossible. Vérifie ton réseau.');
   }

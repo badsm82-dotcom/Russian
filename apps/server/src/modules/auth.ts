@@ -62,6 +62,7 @@ export function registerAuth(app: FastifyInstance, ctx: AppContext): void {
 
   app.post('/v1/auth/register', async (req, reply) => {
     limit(req);
+    if (!ctx.config.registrationOpen) throw new ApiError(403, 'registration_closed', 'Les inscriptions sont fermées sur cette installation.');
     const body = parse(credentials, req.body);
     const hash = await hashPassword(body.password);
     const settings = defaultSettings();
@@ -111,7 +112,7 @@ export function registerAuth(app: FastifyInstance, ctx: AppContext): void {
   app.decorateRequest('userId', null);
   app.addHook('preHandler', async (req) => {
     const path = req.routeOptions.url ?? '';
-    if (!path.startsWith('/v1/') || path.startsWith('/v1/auth/')) return;
+    if (!path.startsWith('/v1/') || path.startsWith('/v1/auth/') || path === '/v1/meta') return;
     const token = bearer(req);
     if (!token) throw new ApiError(401, 'unauthenticated', 'Authentification requise.');
     const r = await ctx.db.query<{ user_id: string }>('SELECT user_id FROM auth_tokens WHERE token_hash = $1 AND expires_at > $2', [

@@ -1,0 +1,80 @@
+name: Tester et déployer sur o2switch
+
+# Lancement manuel (onglet Actions → « Run workflow »), ou à chaque push sur main.
+# Le réseau de l'atelier ne joint pas l'hébergement ; un runner GitHub, si.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  tester:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: r365
+          POSTGRES_PASSWORD: r365
+          POSTGRES_DB: r365_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U r365" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://r365:r365@localhost:5432/r365_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run content:check
+      - run: npm test
+
+  deployer:
+    needs: tester
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Construire le paquet (release/)
+        run: node scripts/build-release.mjs
+        env:
+          BASE_PATH: ${{ vars.BASE_PATH || '/russian' }}
+      - name: Garder le paquet en artefact (toujours récupérable)
+        uses: actions/upload-artifact@v4
+        with:
+          name: russian365-release
+          path: release/
+          include-hidden-files: true
+      - name: Envoyer par FTPS et redémarrer l'application
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_DIR: ${{ secrets.FTP_DIR }}
+        run: |
+          if [ -z "$FTP_HOST" ] || [ -z "$FTP_USER" ] || [ -z "$FTP_PASS" ] || [ -z "$FTP_DIR" ]; then
+            echo "Secrets FTP absents : paquet disponible en artefact, rien n'est envoyé."
+            exit 0
+          fi
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+          mkdir -p release/tmp && date -u +%FT%TZ > release/tmp/restart.txt
+          # FTPS obligatoire (ftp:ssl-force). Le .env du serveur n'est jamais écrasé ni supprimé.
+          lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "
+            set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate yes;
+            set net:max-retries 3; set net:timeout 30;
+            mkdir -p -f $FTP_DIR;
+            mirror --reverse --delete --verbose=1 --exclude-glob .env --exclude-glob node_modules/ --exclude-glob stderr.log release/ $FTP_DIR/;
+            bye"
+          echo "Déployé dans $FTP_DIR — Passenger redémarre l'application (tmp/restart.txt)."

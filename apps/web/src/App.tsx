@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, auth, flushPendingAttempts } from './api';
+import { api, apiUrl, auth, flushPendingAttempts } from './api';
 import { SessionPlayer } from './Session';
 import { speakRu } from './speech';
 
@@ -16,6 +16,16 @@ function applyTheme(theme: string, scale: number) {
 // ---------------------------------------------------------------------------
 function AuthScreen({ onAuth }: { onAuth: () => void }) {
   const [mode, setMode] = useState<'login' | 'register'>('register');
+  const [registrationOpen, setRegistrationOpen] = useState(true);
+  useEffect(() => {
+    api
+      .get('/v1/meta')
+      .then((m) => {
+        setRegistrationOpen(m.registration_open);
+        if (!m.registration_open) setMode('login');
+      })
+      .catch(() => undefined);
+  }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -54,9 +64,11 @@ function AuthScreen({ onAuth }: { onAuth: () => void }) {
         <button className="btn btn-primary" disabled={busy}>
           {mode === 'register' ? 'Commencer' : 'Se connecter'}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
-          {mode === 'login' ? 'Je n’ai pas de compte' : 'J’ai déjà un compte'}
-        </button>
+        {registrationOpen && (
+          <button type="button" className="btn btn-ghost" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
+            {mode === 'login' ? 'Je n’ai pas de compte' : 'J’ai déjà un compte'}
+          </button>
+        )}
       </form>
     </main>
   );
@@ -426,7 +438,7 @@ function SettingsScreen({ profile, onChange, onLogout }: { profile: any; onChang
   const [confirm, setConfirm] = useState('');
   const set = (k: string, v: unknown) => { setS({ ...s, [k]: v }); setSaved(false); };
   const download = async (format: 'json' | 'csv') => {
-    const res = await fetch(`/v1/export?format=${format}`, { headers: { authorization: `Bearer ${auth.token}` } });
+    const res = await fetch(apiUrl(`/v1/export?format=${format}`), { headers: { authorization: `Bearer ${auth.token}` } });
     const blob = await res.blob();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

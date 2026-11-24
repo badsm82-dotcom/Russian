@@ -20,7 +20,7 @@ export interface TestEnv {
 }
 
 /** Base de test réinitialisée (schéma public recréé), migrations et contenu appliqués. */
-export async function setupEnv(start = new Date('2026-11-24T08:00:00Z')): Promise<TestEnv> {
+export async function setupEnv(start = new Date('2026-11-24T08:00:00Z'), overrides: Partial<import('../src/config.js').Config> = {}): Promise<TestEnv> {
   const admin = new pg.Client({ connectionString: TEST_DB_URL });
   await admin.connect();
   await admin.query('DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;');
@@ -31,7 +31,7 @@ export async function setupEnv(start = new Date('2026-11-24T08:00:00Z')): Promis
   await syncContent(db, content);
   const clock = new FakeClock(start);
   process.env.AUTH_RATE_LIMIT = '1000';
-  const app = await buildApp({ db, content, clock, config: { ...loadConfig({}), databaseUrl: TEST_DB_URL } });
+  const app = await buildApp({ db, content, clock, config: { ...loadConfig({}), databaseUrl: TEST_DB_URL, ...overrides } });
   return { app, db, clock, content, close: async () => { await app.close(); await db.end(); } };
 }
 

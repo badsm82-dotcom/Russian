@@ -77,6 +77,14 @@ Données de démonstration (compte A0 vierge si `DEMO_PASSWORD` est défini dans
 npm run db:seed
 ```
 
+## Mise en ligne (o2switch, bmcg.ch/russian)
+
+Guide pas à pas : [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md). Le paquet de production (un seul fichier serveur, sans dépendances à installer) se construit avec :
+
+```bash
+BASE_PATH=/russian node scripts/build-release.mjs
+```
+
 ## Tests
 
 ```bash

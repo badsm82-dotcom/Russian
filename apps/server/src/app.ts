@@ -12,7 +12,14 @@ import { registerProfile } from './modules/profile.js';
 import { registerSessions } from './modules/sessions.js';
 
 export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
+  const base = ctx.config.basePath;
   const app = Fastify({
+    // Hébergement dans un sous-dossier (ex. bmcg.ch/russian) : le préfixe est retiré s'il est transmis par le serveur web.
+    rewriteUrl: (req) => {
+      const url = req.url ?? '/';
+      if (base && (url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`))) return url.slice(base.length) || '/';
+      return url;
+    },
     logger: opts.logger ? { level: ctx.config.logLevel, redact: ['req.headers.authorization'] } : false,
     // La journalisation ne contient ni réponses personnelles ni audio (§18) : les corps ne sont jamais journalisés.
     bodyLimit: 64 * 1024,
@@ -29,6 +36,8 @@ export async function buildApp(ctx: AppContext, opts: { logger?: boolean } = {})
     req.log.error({ err }, 'erreur interne');
     return reply.code(503).send({ error: { code: 'service_unavailable', message: 'Service momentanément indisponible.', details: null } });
   });
+
+  app.get('/v1/meta', async () => ({ registration_open: ctx.config.registrationOpen, base_path: base }));
 
   app.get('/health', async () => {
     await ctx.db.query('SELECT 1');

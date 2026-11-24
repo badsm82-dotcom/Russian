@@ -4,7 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { createPool, type Db } from './db.js';
 import { loadConfig } from './config.js';
 
-const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
+/** Dossier des migrations : MIGRATIONS_DIR (paquet de production) ou ../migrations à côté des sources. */
+function migrationsDir(): string {
+  return process.env.MIGRATIONS_DIR ?? join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
+}
 
 /** Migrations SQL versionnées, appliquées une fois chacune, dans l'ordre, sous verrou consultatif. */
 export async function migrate(db: Db, log: (m: string) => void = () => undefined): Promise<string[]> {
@@ -14,10 +17,10 @@ export async function migrate(db: Db, log: (m: string) => void = () => undefined
     await client.query('SELECT pg_advisory_lock(365365)');
     await client.query('CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
     const done = new Set((await client.query<{ version: string }>('SELECT version FROM schema_migrations')).rows.map((r) => r.version));
-    const files = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith('.sql')).sort();
+    const files = (await readdir(migrationsDir())).filter((f) => f.endsWith('.sql')).sort();
     for (const f of files) {
       if (done.has(f)) continue;
-      const sql = await readFile(join(MIGRATIONS_DIR, f), 'utf8');
+      const sql = await readFile(join(migrationsDir(), f), 'utf8');
       await client.query('BEGIN');
       try {
         await client.query(sql);
@@ -37,7 +40,7 @@ export async function migrate(db: Db, log: (m: string) => void = () => undefined
   return applied;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1]?.endsWith('migrate.ts')) {
   const db = createPool(loadConfig().databaseUrl);
   migrate(db, console.log)
     .then((a) => console.log(a.length ? `${a.length} migration(s) appliquée(s).` : 'Base à jour.'))

@@ -23,9 +23,10 @@
 ## Fonctions non livrées (P2–P5)
 - Tuteur IA / jeux de rôle (F09), TTS/ASR serveur, lecteur et bibliothèque (F10), évaluations M1–M12 et mode examen (F11),
   outil d'administration du contenu, notifications. Les routes correspondantes répondent **501**.
-- Hors ligne : les tentatives non envoyées sont gardées dans le navigateur et renvoyées (même identifiant, sans doublon),
-  et le serveur recalcule chronologiquement ; **pas de service worker ni de cache des leçons** (IndexedDB prévu en P5).
+- Hors ligne : l'interface est mise en cache (service worker) et s'ouvre avec un réseau faible ; les tentatives non envoyées
+  sont gardées et renvoyées (même identifiant, sans doublon). **Une séance ne peut pas démarrer sans réseau** (pas de cache des leçons, IndexedDB prévu en P5).
 - Pas de réinitialisation de mot de passe ni de vérification d'e-mail.
+- Pas de rappel quotidien (notifications) : utiliser un rappel du téléphone en attendant.
 
 ## Mesures
 - Minutes actives : estimation (durée de réponse plafonnée à 2 min + 30 s par présentation).
