@@ -19,6 +19,10 @@ ACUTE = '́'
 VOWELS = 'аеёиоуыэюяАЕЁИОУЫЭЮЯ'
 
 
+class Throttled(Exception):
+    """Le serveur demande d'arrêter (429 persistant) : on n'insiste pas."""
+
+
 def _open(url, timeout=60):
     """Requête avec réessais polis (429/503 : on respecte Retry-After), pour ne pas surcharger les serveurs."""
     for attempt in range(6):
@@ -26,10 +30,12 @@ def _open(url, timeout=60):
         try:
             return urllib.request.urlopen(req, timeout=timeout)
         except urllib.error.HTTPError as e:
-            if e.code in (429, 503) and attempt < 5:
+            if e.code in (429, 503):
                 wait = int(e.headers.get('Retry-After') or 0) or 5 * (attempt + 1)
+                if wait > 60 or attempt >= 2:
+                    raise Throttled(f'{e.code} sur {url[:80]} (Retry-After {wait} s)')
                 print(f'  {e.code} sur {url[:80]}… attente {wait} s')
-                time.sleep(min(wait, 60))
+                time.sleep(wait)
                 continue
             raise
         except urllib.error.URLError:
@@ -81,7 +87,11 @@ def lingua_libre(word):
         if not OK_LICENSES.match(lic):
             print('  licence refusée', t, lic)
             continue
-        out.append({'url': ii['url'], 'page': ii.get('descriptionurl', ''), 'license': lic,
+        # Version MP3 transcodée par Wikimedia (recommandée plutôt que l'original pour les accès automatisés).
+        orig = ii['url']
+        name = orig.rsplit('/', 1)[1]
+        transcoded = orig.replace('/wikipedia/commons/', '/wikipedia/commons/transcoded/', 1) + f'/{name}.mp3'
+        out.append({'url': transcoded, 'original': orig, 'page': ii.get('descriptionurl', ''), 'license': lic,
                     'author': strip_html(meta.get('Artist', {}).get('value', '')) or 'Lingua Libre', 'title': t})
         time.sleep(0.3)
     return out
@@ -126,23 +136,39 @@ def main():
     model.to(torch.device('cpu'))
     import soundfile as sf
 
+    native_enabled = True
     for n, item in enumerate(texts):
         key, text = item['key'], item['text']
         h = hashlib.sha1(key.encode()).hexdigest()[:10]
         entries = [e for e in manifest.get(key, []) if os.path.exists(os.path.join(OUT, e['file']))]
         have = {e['voice'] for e in entries}
         print(f'[{n + 1}/{len(texts)}] {text}')
-        if item['words'] == 1 and not any(e['source'] == 'lingualibre' for e in entries):
+        if native_enabled and item['words'] == 1 and not any(e['source'] == 'lingualibre' for e in entries):
             word = unicodedata.normalize('NFC', text.replace(ACUTE, '')).strip(' ,.!?').lower()
             try:
                 recs = lingua_libre(word)
+            except Throttled as e:
+                print('  Wikimedia demande de ralentir : voix natives suspendues pour ce passage.', e)
+                native_enabled = False
+                recs = []
             except Exception as e:  # Commons indisponible : la synthèse prend le relais pour ce mot
                 print('  Lingua Libre indisponible pour', word, e)
                 recs = []
-            time.sleep(1.0)  # rythme poli envers l'API Wikimedia
+            time.sleep(2.0)  # rythme poli envers Wikimedia
             for k, rec in enumerate(recs):
-                tmp = f'/tmp/ll_{h}_{k}.wav'
-                download(rec['url'], tmp)
+                if not native_enabled:
+                    break
+                tmp = f'/tmp/ll_{h}_{k}.audio'
+                try:
+                    download(rec['url'], tmp)
+                except Throttled as e:
+                    print('  Téléchargement freiné : voix natives suspendues pour ce passage.', e)
+                    native_enabled = False
+                    break
+                except Exception as e:
+                    print('  Fichier indisponible', rec['url'][:80], e)
+                    continue
+                time.sleep(2.0)
                 fname = f'{h}-ll{k}.mp3'
                 to_mp3(tmp, os.path.join(OUT, fname))
                 entries.append({'file': fname, 'source': 'lingualibre', 'voice': f'll{k}', 'license': rec['license'],
