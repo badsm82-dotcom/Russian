@@ -1,4 +1,4 @@
-name: Collecter les ressources ouvertes russe-français
+name: Collecter les ressources ouvertes (russe ↔ fr, de, en, pt, it, es, ro)
 
 # Tatoeba (CC BY 2.0 FR), Wiktionary (CC BY-SA), Wikivoyage (CC BY-SA). Aucun site commercial.
 on:
@@ -10,7 +10,7 @@ permissions:
 jobs:
   sources:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -23,6 +23,6 @@ jobs:
           git config user.email "russian365-sources-bot@users.noreply.github.com"
           git add packages/content/data/sources
           if git diff --cached --quiet; then echo "Rien de nouveau."; exit 0; fi
-          git commit -m "Sources ouvertes : Tatoeba, Wiktionary, Wikivoyage (russe-français)"
+          git commit -m "Sources ouvertes multilingues : Tatoeba, Wiktionary, Wikivoyage"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
