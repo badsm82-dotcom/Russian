@@ -290,6 +290,42 @@ describe('Objectifs (§4, §12)', () => {
   });
 });
 
+describe('Sources russe-français (Tatoeba, Wiktionary)', () => {
+  it('passerelle « emprunt au français » : invisible avant validation, visible après, rejet respecté', async () => {
+    const c = api(env, await register(env));
+    const rev = (await c.get('/v1/bridges/review?limit=50')).body;
+    expect(rev.total_pending).toBeGreaterThan(1000);
+    const tualet = rev.items.find((b: any) => b.concept_id === 'word:туалет');
+    expect(tualet).toBeTruthy();
+    expect(tualet.in_lessons).toBe(true);
+    // Avant validation : rien n'est affiché pour l'item de leçon lex:tualet.
+    expect((await c.get(`/v1/concepts/${encodeURIComponent('lex:tualet')}/bridges`)).body.bridge).toBeNull();
+    await c.post(`/v1/bridges/${tualet.id}/review`, { decision: 'approved', version: tualet.version });
+    const after = (await c.get(`/v1/concepts/${encodeURIComponent('lex:tualet')}/bridges`)).body.bridge;
+    expect(after).toMatchObject({ source_language: 'fr', bridge_type: 'lexical_loanword' });
+    expect((await c.get(`/v1/dictionary?q=${encodeURIComponent('туалет')}`)).body.results[0].bridges.length).toBe(1);
+    await c.post(`/v1/bridges/${tualet.id}/review`, { decision: 'rejected', version: tualet.version });
+    expect((await c.get(`/v1/concepts/${encodeURIComponent('lex:tualet')}/bridges`)).body.bridge).toBeNull();
+    // Un autre compte n'est pas concerné par mes validations.
+    const other = api(env, await register(env));
+    expect((await other.get('/v1/bridges/review?limit=1')).body.approved).toBe(0);
+  });
+
+  it('phrases réelles : uniquement des formes apprises et des lettres connues', async () => {
+    const c = api(env, await register(env));
+    expect((await c.get('/v1/reading/sentences')).body.sentences).toEqual([]);
+    const userId = (await c.get('/v1/profile')).body.user_id;
+    for (const id of [...env.content.itemUnit.keys()]) {
+      await env.db.query('INSERT INTO taught_items (user_id, item_id, taught_at) VALUES ($1,$2,now()) ON CONFLICT DO NOTHING', [userId, env.content.itemUuid(id)]);
+    }
+    const r = (await c.get('/v1/reading/sentences?limit=60')).body;
+    expect(r.sentences.length).toBeGreaterThan(10);
+    expect(r.sentences.map((s: any) => s.ru)).toContain('Где ты?');
+    expect(r.sentences.every((s: any) => !/звал/.test(s.ru))).toBe(true);
+    expect(r.license).toMatch(/CC BY 2.0 FR/);
+  });
+});
+
 describe('Divers', () => {
   it('dictionnaire : forme fléchie → lemme, accent, formes, licence', async () => {
     const c = api(env, await register(env));

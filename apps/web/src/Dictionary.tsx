@@ -110,6 +110,9 @@ export function DictionaryScreen({ rate }: { rate: number }) {
             <span className="muted">fréquence : n° {r.rank} des {r.pos_fr}s</span>
           </p>
           {r.aspect_partner && <p className="small">Paire d’aspect : <RuWord text={r.aspect_partner} /></p>}
+          {r.bridges?.map((b: any) => (
+            <p key={b.source_expression} className="bridge small">🇫🇷 {b.explanation_fr} <span className="muted">{b.limitations_fr}</span></p>
+          ))}
           <p>🇬🇧 {r.en || '—'}</p>
           <p>🇩🇪 {r.de || '—'}</p>
           {Object.keys(r.forms).length > 0 && (

@@ -17,6 +17,9 @@ import { ReminderButton } from './Reminder';
 
 // Écrans secondaires chargés seulement à l'ouverture : démarrage plus léger sur le téléphone.
 const DictionaryScreen = lazy(() => import('./Dictionary').then((m) => ({ default: m.DictionaryScreen })));
+const BridgeReview = lazy(() => import('./Extras').then((m) => ({ default: m.BridgeReview })));
+const RealSentences = lazy(() => import('./Extras').then((m) => ({ default: m.RealSentences })));
+const ExtrasCards = lazy(() => import('./Extras').then((m) => ({ default: m.ExtrasCards })));
 const AssessmentPlayer = lazy(() => import('./AssessmentPlayer').then((m) => ({ default: m.AssessmentPlayer })));
 import { LatinTrap, LetterBadge, RuWord } from './visual';
 import { SpeakIcon } from './Audio';
@@ -244,7 +247,7 @@ function pick(s: any) {
 }
 
 // ---------------------------------------------------------------------------
-function Home({ profile, onStart, onAssessment }: { profile: any; onStart: (id: string) => void; onAssessment: () => void }) {
+function Home({ profile, onStart, onAssessment, onScreen }: { profile: any; onStart: (id: string) => void; onAssessment: () => void; onScreen: (s: 'review' | 'reading') => void }) {
   const [minutes, setMinutes] = useState<number>(profile.settings.daily_minutes);
   const [current, setCurrent] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
@@ -331,6 +334,7 @@ function Home({ profile, onStart, onAssessment }: { profile: any; onStart: (id: 
         {analytics && <p className="small muted">{analytics.next_action_fr}</p>}
       </section>
       <GoalCard g={goals} />
+      <Suspense fallback={null}><ExtrasCards onReview={() => onScreen('review')} onReading={() => onScreen('reading')} /></Suspense>
       <section className="card"><ReminderButton settings={profile.settings} /></section>
       <AssessmentCard onStart={onAssessment} />
       {unit && (
@@ -648,6 +652,7 @@ export function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [inAssessment, setInAssessment] = useState(false);
+  const [screen, setScreen] = useState<null | 'review' | 'reading'>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadProfile = (): Promise<void> =>
@@ -692,7 +697,7 @@ export function App() {
       <a href="#main" className="skip">Aller au contenu</a>
       <header className="topbar">
         <span className="brand">Russian <b>365</b></span>
-        {!sessionId && !inAssessment && (
+        {!sessionId && !inAssessment && !screen && (
           <nav aria-label="Navigation principale" className="tabs">
             {tabs.map(([k, label]) => (
               <button key={k} type="button" className={`tab${tab === k ? ' on' : ''}`} aria-current={tab === k ? 'page' : undefined} onClick={() => setTab(k)}>
@@ -704,12 +709,16 @@ export function App() {
       </header>
       <main id="main" className="container">
         <Suspense fallback={<p aria-busy="true">Chargement…</p>}>
-        {inAssessment ? (
+        {screen === 'review' ? (
+          <BridgeReview onExit={() => setScreen(null)} />
+        ) : screen === 'reading' ? (
+          <RealSentences onExit={() => setScreen(null)} rate={profile.settings.audio_rate} />
+        ) : inAssessment ? (
           <AssessmentPlayer onExit={() => { setInAssessment(false); setTab('home'); }} />
         ) : sessionId ? (
           <SessionPlayer sessionId={sessionId} onExit={() => { setSessionId(null); setTab('home'); }} />
         ) : tab === 'home' ? (
-          <Home profile={profile} onStart={setSessionId} onAssessment={() => setInAssessment(true)} />
+          <Home profile={profile} onStart={setSessionId} onAssessment={() => setInAssessment(true)} onScreen={setScreen} />
         ) : tab === 'path' ? (
           <PathScreen />
         ) : tab === 'alphabet' ? (

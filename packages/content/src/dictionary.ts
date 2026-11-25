@@ -72,6 +72,12 @@ export function lookup(query: string, limit = 12): DictHit[] {
   return hits;
 }
 
+/** Rang de fréquence d'un lemme exact (forme de base), ou null. */
+export function lemmaRank(bare: string): number | null {
+  const list = index().byLemma.get(key(bare));
+  return list?.length ? Math.min(...list.map((e) => e.r)) : null;
+}
+
 /** Lemmes possibles d'une forme (ex. « хочу » → хотеть). */
 export function lemmatize(form: string): DictEntry[] {
   const k = key(form);

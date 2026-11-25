@@ -304,3 +304,13 @@ summary { cursor: pointer; }
 .audio-credit { flex-basis: 100%; }
 .audio-credit a { color: inherit; }
 .stimulus-emoji { font-size: 4.5rem; line-height: 1.1; margin: 0.5rem 0; text-align: center; }
+.extras { display: grid; gap: 0.4rem; }
+.extra-btn { text-align: left; }
+.review-pair { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.review-fr { font-size: 1.3rem; font-weight: 600; }
+.review-arrow { color: var(--muted); }
+.sentences { list-style: none; padding: 0; display: grid; gap: 0.6rem; }
+.sentence { display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
+.sentence-btn { flex: 1; text-align: left; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; display: grid; gap: 0.2rem; padding: 0; }
+.sentence-ru { font-size: 1.4rem; }
+.sentence-fr { color: var(--ok); font-weight: 600; }

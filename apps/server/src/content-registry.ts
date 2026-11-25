@@ -7,6 +7,7 @@ import {
   ALL_LETTERS,
   BRIDGES,
   EXERCISES,
+  FRENCH_LOAN_BRIDGES,
   SPEAKABLE_ITEMS,
   TEACH_CARDS,
   UNITS,
@@ -55,7 +56,7 @@ export function loadContent(opts: { allowPending: boolean }): ContentRegistry {
     exerciseById: new Map(exercises.map((e) => [e.id, e])),
     exerciseBySlug: new Map(exercises.map((e) => [e.slug, e])),
     cards,
-    bridges: BRIDGES,
+    bridges: [...BRIDGES, ...FRENCH_LOAN_BRIDGES],
     letters: ALL_LETTERS,
     speakable: SPEAKABLE_ITEMS,
     itemUuid(slug) {
