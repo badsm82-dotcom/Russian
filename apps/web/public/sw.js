@@ -45,7 +45,22 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  // Fichiers versionnés (assets/xxx-hash.js) : cache d'abord.
+  // Liste des fichiers audio : réseau d'abord (nouvelles voix), cache en secours.
+  if (url.pathname.endsWith('/audio/manifest.json')) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req)),
+    );
+    return;
+  }
+  // Fichiers versionnés (assets/xxx-hash.js, audio/xxx.mp3) : cache d'abord.
   e.respondWith(
     caches.match(req).then(
       (hit) =>

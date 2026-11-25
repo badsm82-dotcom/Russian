@@ -8,6 +8,8 @@
  *  - le mode silencieux (interrupteur latéral) coupe la synthèse vocale web : on le signale si rien ne démarre.
  */
 
+import { normalizeAnswer, stripStressMarks } from '@r365/domain';
+
 export function stripStress(s: string): string {
   return s.normalize('NFD').replace(/́/g, '').normalize('NFC');
 }
@@ -47,8 +49,79 @@ export function onVoicesChanged(cb: () => void): () => void {
 
 export type SpeakOutcome = 'started' | 'failed' | 'unsupported';
 
-/** Lit un texte russe. La promesse indique si la lecture a réellement démarré (sinon : conseils à l'utilisateur). */
+// ---------------------------------------------------------------------------
+// Fichiers audio (voix natives Lingua Libre, synthèse Silero) : lus par un vrai lecteur audio,
+// donc audibles même en mode silencieux sur iPhone, et mis en cache pour le hors-ligne.
+// ---------------------------------------------------------------------------
+
+export interface AudioEntry {
+  file: string;
+  source: 'lingualibre' | 'silero';
+  voice: string;
+  license: string;
+  author: string;
+  url: string;
+}
+
+/** Liste des fichiers, chargée dès l'ouverture : sur iPhone, play() doit partir sans attente après le toucher. */
+let manifestData: Record<string, AudioEntry[]> | null = null;
+export function preloadAudioManifest(): void {
+  if (manifestData || typeof fetch === 'undefined') return;
+  fetch(`${import.meta.env.BASE_URL}audio/manifest.json`, { cache: 'no-cache' })
+    .then((r) => (r.ok ? r.json() : {}))
+    .then((d) => {
+      manifestData = d;
+    })
+    .catch(() => undefined);
+}
+
+/** Même clé que le générateur (scripts/audio-texts.ts) : sans accent, sans ponctuation, minuscules, ё → е. */
+export function audioKey(text: string): string {
+  return normalizeAnswer(stripStressMarks(text));
+}
+
+const plays = new Map<string, number>();
+let current: HTMLAudioElement | null = null;
+/** Dernier enregistrement natif joué (pour l'attribution exigée par CC BY-SA). */
+export let lastNative: AudioEntry | null = null;
+
+/** Lit un texte russe : fichier audio s'il existe (audible même en mode silencieux), sinon synthèse de l'appareil. */
 export function speakRu(text: string, rate = 1): Promise<SpeakOutcome> {
+  const key = audioKey(text);
+  const entries = manifestData?.[key];
+  if (!entries?.length) {
+    preloadAudioManifest();
+    lastNative = null;
+    return speakSynth(text, rate);
+  }
+  // Voix native d'abord ; puis on alterne les voix (plusieurs locuteurs entraînent mieux l'oreille).
+  const ordered = [...entries.filter((e) => e.source === 'lingualibre'), ...entries.filter((e) => e.source !== 'lingualibre')];
+  const n = plays.get(key) ?? 0;
+  plays.set(key, n + 1);
+  const entry = ordered[n % ordered.length]!;
+  try {
+    current?.pause();
+    const a = new Audio(`${import.meta.env.BASE_URL}audio/${entry.file}`);
+    a.playbackRate = rate;
+    (a as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
+    current = a;
+    // play() appelé immédiatement, dans le geste de l'utilisateur.
+    return a.play().then(
+      () => {
+        lastNative = entry.source === 'lingualibre' ? entry : null;
+        return 'started' as const;
+      },
+      () => {
+        lastNative = null;
+        return speakSynth(text, rate);
+      },
+    );
+  } catch {
+    return speakSynth(text, rate);
+  }
+}
+
+function speakSynth(text: string, rate: number): Promise<SpeakOutcome> {
   if (!speechSupported()) return Promise.resolve('unsupported');
   const synth = window.speechSynthesis;
   const u = new SpeechSynthesisUtterance(stripStress(text));

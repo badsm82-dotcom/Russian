@@ -301,3 +301,5 @@ summary { cursor: pointer; }
 .unit-progress.threshold::after { content: ''; position: absolute; top: -3px; bottom: -3px; left: var(--th); width: 2px; background: var(--text); }
 .audio-help { flex-basis: 100%; background: var(--info-bg); border-radius: 8px; padding: 0.4rem 0.7rem; margin-top: 0.3rem; }
 .audio-help ul { margin: 0.2rem 0; padding-left: 1.1rem; }
+.audio-credit { flex-basis: 100%; }
+.audio-credit a { color: inherit; }

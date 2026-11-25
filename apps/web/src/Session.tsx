@@ -548,7 +548,7 @@ export function SessionPlayer({ sessionId, onExit }: { sessionId: string; onExit
         </div>
       )}
       <div className="rates small muted">
-        Vitesse audio : {RATES.join(' / ')} (réglages) · Synthèse vocale du navigateur, non validée — un audio natif fera référence.
+        Vitesse audio : {RATES.join(' / ')} (réglages) · Audio : voix natives Lingua Libre (CC BY-SA) quand elles existent, sinon synthèse Silero (CC BY-NC-SA, usage personnel) ou voix de l’appareil — non validé par un russophone.
       </div>
     </section>
   );

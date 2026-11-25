@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AUDIO_HELP_FR, speakRu, speechSupported, type SpeakOutcome } from './speech';
+import { AUDIO_HELP_FR, lastNative, speakRu, speechSupported, type AudioEntry, type SpeakOutcome } from './speech';
 
 function Help({ outcome }: { outcome: SpeakOutcome }) {
   if (outcome === 'started') return null;
@@ -18,13 +18,27 @@ function Help({ outcome }: { outcome: SpeakOutcome }) {
 }
 
 /** Bouton « Écouter » + « Plus lentement », avec aide si la lecture ne démarre pas. */
+function Credit({ e }: { e: AudioEntry | null }) {
+  if (!e) return null;
+  return (
+    <span className="audio-credit tiny-muted">
+      🎙 voix native : <a href={e.url} target="_blank" rel="noreferrer">{e.author}</a> · Lingua Libre · {e.license}
+    </span>
+  );
+}
+
 export function AudioButton({ text, rate, label = 'Écouter' }: { text: string; rate: number; label?: string }) {
   const [outcome, setOutcome] = useState<SpeakOutcome>(speechSupported() ? 'started' : 'unsupported');
-  const play = async (r: number) => setOutcome(await speakRu(text, r));
+  const [credit, setCredit] = useState<AudioEntry | null>(null);
+  const play = async (r: number) => {
+    setOutcome(await speakRu(text, r));
+    setCredit(lastNative);
+  };
   return (
     <span className="audio">
       <button type="button" className="btn btn-ghost" onClick={() => play(rate)}>🔊 {label}</button>
       <button type="button" className="btn btn-ghost btn-small" onClick={() => play(0.75)} aria-label="Écouter plus lentement">🐢 Plus lentement</button>
+      <Credit e={credit} />
       <Help outcome={outcome} />
     </span>
   );
