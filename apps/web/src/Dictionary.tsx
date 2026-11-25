@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from './api';
 import { CyrillicKeyboard } from './Keyboard';
-import { speakRu } from './speech';
+import { SpeakIcon } from './Audio';
 import { RuWord } from './visual';
 
 const CASES: [string, string, string][] = [
@@ -102,7 +102,7 @@ export function DictionaryScreen({ rate }: { rate: number }) {
         <article key={`${r.lemma}-${r.pos}-${i}`} className="card dict-entry">
           <div className="word-head">
             <h3 className="big-word-sm"><RuWord text={r.accented} /></h3>
-            <button type="button" className="btn btn-ghost btn-small" onClick={() => speakRu(r.accented, rate)} aria-label={`Écouter ${r.lemma}`}>🔊</button>
+            <SpeakIcon text={r.accented} rate={rate} label={`Écouter ${r.lemma}`} />
           </div>
           {r.match === 'form' && <p className="small info">« {r.matched_form} » est une forme de <strong className="ru">{r.lemma}</strong>.</p>}
           <p className="small">

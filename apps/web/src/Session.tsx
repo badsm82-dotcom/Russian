@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError, sendAttempt, uuid, type AttemptPayload } from './api';
 import { cachedSession, cacheSession, enqueue, flushOps, gradeOffline, isNetworkError, updateCachedCursor } from './offline';
 import { CyrillicKeyboard } from './Keyboard';
-import { ruVoiceAvailable, speakRu, stripStress } from './speech';
+import { ruVoiceAvailable, stripStress } from './speech';
+import { AudioButton, SpeakIcon } from './Audio';
 import { AnswerDiff, CardTableView, LatinTrap, LetterBadge, RuWord, StressLegend } from './visual';
 
 type Step = any;
@@ -12,21 +13,6 @@ const RATES = [0.75, 0.9, 1, 1.15] as const;
 
 function Ru({ text, stress, className = '', reduce = false, highlight }: { text: string; stress: boolean; className?: string; reduce?: boolean; highlight?: string }) {
   return <RuWord text={text} stress={stress} className={className} reduce={reduce} highlight={highlight} />;
-}
-
-function AudioButton({ text, rate, label = 'Écouter' }: { text: string; rate: number; label?: string }) {
-  const [unavailable, setUnavailable] = useState(!ruVoiceAvailable());
-  return (
-    <span className="audio">
-      <button type="button" className="btn btn-ghost" onClick={() => setUnavailable(!speakRu(text, rate))}>
-        🔊 {label}
-      </button>
-      <button type="button" className="btn btn-ghost btn-small" onClick={() => setUnavailable(!speakRu(text, 0.75))} aria-label="Écouter plus lentement">
-        🐢 Plus lentement
-      </button>
-      {unavailable && <span className="muted small">Aucune voix russe dans ce navigateur : lis la translittération et reviens à l’audio plus tard.</span>}
-    </span>
-  );
 }
 
 function BridgePanel({ conceptId, context, sessionId, stepIndex }: { conceptId: string; context: 'lesson' | 'exercise'; sessionId: string; stepIndex: number }) {
@@ -124,9 +110,7 @@ function TeachCard({ step, session, onDone }: { step: Step; session: Session; on
           {c.examples.map((e: any) => (
             <li key={e.ru}>
               <Ru text={e.ru} stress={s.show_stress_marks} reduce highlight={c.item_type === 'letter' ? c.ru_lower : undefined} /> {step.show_transliteration && <span className="translit">≈ {e.translit_fr}</span>} — {e.fr}
-              <button type="button" className="btn btn-ghost btn-small" onClick={() => speakRu(e.ru, s.audio_rate)} aria-label={`Écouter ${stripStress(e.ru)}`}>
-                🔊
-              </button>
+              <SpeakIcon text={e.ru} rate={s.audio_rate} label={`Écouter ${stripStress(e.ru)}`} />
             </li>
           ))}
         </ul>

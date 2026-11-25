@@ -299,3 +299,5 @@ summary { cursor: pointer; }
 .review-stim { font-size: 1.3rem; font-weight: 600; }
 .unit-progress.threshold { position: relative; }
 .unit-progress.threshold::after { content: ''; position: absolute; top: -3px; bottom: -3px; left: var(--th); width: 2px; background: var(--text); }
+.audio-help { flex-basis: 100%; background: var(--info-bg); border-radius: 8px; padding: 0.4rem 0.7rem; margin-top: 0.3rem; }
+.audio-help ul { margin: 0.2rem 0; padding-left: 1.1rem; }

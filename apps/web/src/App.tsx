@@ -15,7 +15,7 @@ import { DictionaryScreen } from './Dictionary';
 import { GoalCard, GoalPlan, useGoals } from './Goals';
 import { AssessmentCard, AssessmentPlayer } from './Assessment';
 import { LatinTrap, LetterBadge, RuWord } from './visual';
-import { speakRu } from './speech';
+import { SpeakIcon } from './Audio';
 
 type Tab = 'home' | 'path' | 'alphabet' | 'dict' | 'stats' | 'settings';
 const DURATIONS = [5, 15, 25, 35, 60] as const;
@@ -438,7 +438,7 @@ function AlphabetScreen({ rate }: { rate: number }) {
           {open.latin_trap_fr && <p className="warn small">⚠️ {open.latin_trap_fr}</p>}
           <ul className="examples">
             {open.examples.map((e: any) => (
-              <li key={e.ru}><RuWord text={e.ru} reduce highlight={open.lower} /> — {e.fr} <button type="button" className="btn btn-ghost btn-small" onClick={() => speakRu(e.ru, rate)}>🔊</button></li>
+              <li key={e.ru}><RuWord text={e.ru} reduce highlight={open.lower} /> — {e.fr} <SpeakIcon text={e.ru} rate={rate} /></li>
             ))}
           </ul>
         </section>
