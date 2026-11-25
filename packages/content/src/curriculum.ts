@@ -506,6 +506,61 @@ function monthOneExercises(): ExerciseDef[] {
   ];
 }
 
+/**
+ * Exercices visuels et perceptifs (recommandations de docs/ANALYSE_METHODES.md) :
+ *  - « Où est l'accent ? » : choisir la voyelle accentuée, avec l'audio (perception de l'accent tonique) ;
+ *  - « Image → mot » : double codage image + mot (le pictogramme renvoie au mot russe).
+ * Nouveaux exercices uniquement : les exercices existants et leurs versions ne changent pas.
+ */
+function visualExercises(): ExerciseDef[] {
+  const out: ExerciseDef[] = [];
+  const VOW = 'аеёиоуыэюя';
+  for (const x of LEXEMES) {
+    if (x.generate === false) continue;
+    // 1. Où est l'accent ? — mots isolés d'au moins deux voyelles, accent connu.
+    const word = x.ru.replace(/[…?!.,]/g, '').trim();
+    if (!word.includes(' ') && word.includes('\u0301')) {
+      const plain = stripStressMarks(word);
+      const lower = plain.toLocaleLowerCase('ru');
+      const vowelIdx = [...lower].map((c, i) => (VOW.includes(c) ? i : -1)).filter((i) => i >= 0);
+      if (vowelIdx.length >= 2) {
+        const nfd = [...word.normalize('NFD')];
+        let letterIndex = -1;
+        let stressed = -1;
+        for (const ch of nfd) {
+          if (ch === '\u0301') stressed = letterIndex;
+          else if (!/\p{M}/u.test(ch)) letterIndex++;
+        }
+        const label = (pos: number) => [...lower].map((c, i) => (i === pos ? c.toLocaleUpperCase('ru') : c)).join('');
+        out.push(build({
+          slug: `stress_${x.item_id}`, type: 'stress', item_id: x.item_id, competency: 'recognition', difficulty: 2,
+          prompt_fr: 'Où est l’accent tonique ? Écoute, puis touche la voyelle accentuée.',
+          stimulus: { audio_text: plain, show_text_before_answer: false, fr: x.fr },
+          choices: vowelIdx.map((i) => ({ id: `v${i}`, label: label(i), ru: label(i) })),
+          answer: { kind: 'choice', correct: `v${stressed}` },
+          explanation_fr: `On dit « ${label(stressed)} » : l’accent tombe sur ${lower[stressed]?.toLocaleUpperCase('ru')}. Les autres voyelles sont plus courtes${/о/.test(lower) ? ' (о non accentué ≈ [a])' : ''}.`,
+        }));
+      }
+    }
+    // 2. Image → mot.
+    const emoji = ITEM_EMOJI[x.item_id];
+    if (emoji) {
+      const pool = LEXEMES.filter((o) => o.item_id !== x.item_id && o.unit <= x.unit && o.generate !== false && ITEM_EMOJI[o.item_id] && !ITEM_EMOJI[o.item_id]!.includes(emoji) && !emoji.includes(ITEM_EMOJI[o.item_id]!));
+      const distract = shuffle(pool, `img_${x.item_id}`).slice(0, 3);
+      if (distract.length >= 2) {
+        const opts = shuffle([x, ...distract], `imgc_${x.item_id}`).map((o) => ({ id: o.item_id, label: stripStressMarks(o.ru), ru: o.ru }));
+        out.push(build({
+          slug: `image_${x.item_id}`, type: 'lexical_recognition', item_id: x.item_id, competency: 'recognition', difficulty: 2,
+          prompt_fr: 'Quel mot correspond à cette image ?', stimulus: { emoji, fr: undefined },
+          choices: opts, answer: { kind: 'choice', correct: x.item_id }, requires_items: distract.map((d) => d.item_id),
+          explanation_fr: `${emoji} = « ${x.ru} » (${x.fr}).`,
+        }));
+      }
+    }
+  }
+  return out;
+}
+
 export const EXERCISES: ExerciseDef[] = [
   ...LETTERS.flatMap(letterExercises),
   ...transferExercises(),
@@ -513,6 +568,7 @@ export const EXERCISES: ExerciseDef[] = [
   ...structureExercises(),
   ...consolidationExercises(),
   ...monthOneExercises(),
+  ...visualExercises(),
 ];
 
 export const SPEAKABLE_ITEMS: ReadonlySet<string> = new Set(LEXEMES.map((x) => x.item_id));

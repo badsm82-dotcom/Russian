@@ -13,6 +13,7 @@ function errorText(e: unknown): string {
 import { SessionPlayer } from './Session';
 import { GoalCard, GoalPlan, useGoals } from './Goals';
 import { AssessmentCard } from './Assessment';
+import { ReminderButton } from './Reminder';
 
 // Écrans secondaires chargés seulement à l'ouverture : démarrage plus léger sur le téléphone.
 const DictionaryScreen = lazy(() => import('./Dictionary').then((m) => ({ default: m.DictionaryScreen })));
@@ -330,6 +331,7 @@ function Home({ profile, onStart, onAssessment }: { profile: any; onStart: (id: 
         {analytics && <p className="small muted">{analytics.next_action_fr}</p>}
       </section>
       <GoalCard g={goals} />
+      <section className="card"><ReminderButton settings={profile.settings} /></section>
       <AssessmentCard onStart={onAssessment} />
       {unit && (
         <section className="card">
@@ -588,6 +590,9 @@ function SettingsScreen({ profile, onChange, onLogout }: { profile: any; onChang
             <input className="input" type="date" value={s.goal_start_date ?? ''} onChange={(e) => set('goal_start_date', e.target.value || null)} />
             <span className="small muted">Vide = date de création du compte.</span>
           </label>
+          <label className="block">Heure de ma séance (rappel)
+            <input className="input" type="time" value={s.preferred_time ?? ''} onChange={(e) => set('preferred_time', e.target.value || null)} />
+          </label>
           <label className="block">Jours de pratique par semaine
             <input className="input" type="number" min={1} max={7} value={s.days_per_week} onChange={(e) => set('days_per_week', Number(e.target.value))} />
           </label>
@@ -597,6 +602,7 @@ function SettingsScreen({ profile, onChange, onLogout }: { profile: any; onChang
         <label className="check"><input type="checkbox" checked={s.personal_context_enabled} onChange={(e) => set('personal_context_enabled', e.target.checked)} /> Utiliser mes thèmes personnels</label>
         <label className="check"><input type="checkbox" checked={s.microphone_consent} onChange={(e) => set('microphone_consent', e.target.checked)} /> Consentement micro (révocable à tout moment)</label>
         <label className="check"><input type="checkbox" checked={s.notifications_enabled} onChange={(e) => set('notifications_enabled', e.target.checked)} /> Rappels (facultatifs)</label>
+        <ReminderButton settings={s} />
         <h3>Langues d’appui</h3>
         <LanguagesEditor value={langs} names={profile.language_names_fr} onChange={(v) => { setLangs(v); setSaved(false); }} />
         <div className="actions">

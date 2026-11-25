@@ -152,6 +152,18 @@ function SpeakCard({ step, session, onDone }: { step: Step; session: Session; on
 
 const KB_HELP_KEY = 'r365.kbHelpSeen';
 
+/** Choix « où est l'accent ? » : la voyelle en majuscule est affichée en couleur, en minuscule. */
+function StressChoice({ label }: { label: string }) {
+  return (
+    <span className="ru">
+      {[...label].map((ch, i) => {
+        const up = ch !== ch.toLocaleLowerCase('ru');
+        return up ? <span key={i} className="stress">{ch.toLocaleLowerCase('ru')}</span> : <span key={i}>{ch}</span>;
+      })}
+    </span>
+  );
+}
+
 interface OfflineHooks {
   /** Définition complète de l'exercice (paquet hors ligne), si disponible. */
   exercise: (id: string) => any | undefined;
@@ -183,7 +195,7 @@ function ExerciseCard({ step, session, onAnswered, onNext, offline }: { step: St
     started.current = Date.now();
   }, [step.index]);
 
-  const audioBefore = ex.type === 'listening' || ex.type === 'dictation';
+  const audioBefore = ex.type === 'listening' || ex.type === 'dictation' || ex.type === 'stress';
   const showText = ex.stimulus.ru && ex.stimulus.show_text_before_answer !== false;
   const voice = ruVoiceAvailable();
 
@@ -249,6 +261,7 @@ function ExerciseCard({ step, session, onAnswered, onNext, offline }: { step: St
           <Ru text={ex.stimulus.ru} stress={s.show_stress_marks} className="big-word" />
         </p>
       )}
+      {ex.stimulus.emoji && <p className="stimulus-emoji" aria-label="Image">{ex.stimulus.emoji}</p>}
       {!showText && ex.stimulus.fr && !ex.prompt_fr.includes(ex.stimulus.fr) && <p className="stimulus-fr">{ex.stimulus.fr}</p>}
       {audioBefore && ex.stimulus.audio_text && (
         <div>
@@ -266,7 +279,7 @@ function ExerciseCard({ step, session, onAnswered, onNext, offline }: { step: St
           {ex.choices.map((c: any) => (
             <button key={c.id} type="button" className={`btn choice${c.ru ? ' ru big-choice' : ''}`} disabled={busy} onClick={() => submit({ choice_id: c.id })}>
               {step.choice_emojis?.[c.id] && <span className="choice-emoji" aria-hidden="true">{step.choice_emojis[c.id]}</span>}
-              {c.label}
+              {ex.type === 'stress' ? <StressChoice label={c.label} /> : c.label}
             </button>
           ))}
         </div>

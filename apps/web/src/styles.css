@@ -303,3 +303,4 @@ summary { cursor: pointer; }
 .audio-help ul { margin: 0.2rem 0; padding-left: 1.1rem; }
 .audio-credit { flex-basis: 100%; }
 .audio-credit a { color: inherit; }
+.stimulus-emoji { font-size: 4.5rem; line-height: 1.1; margin: 0.5rem 0; text-align: center; }

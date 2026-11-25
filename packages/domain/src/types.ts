@@ -55,7 +55,9 @@ export type ExerciseType =
   | 'listening'
   | 'dictation'
   | 'fill_blank'
-  | 'transformation';
+  | 'transformation'
+  /** Où est l'accent tonique ? (choix de la voyelle accentuée) */
+  | 'stress';
 
 export type ContentStatus = 'draft' | 'pending_review' | 'validated' | 'retired';
 

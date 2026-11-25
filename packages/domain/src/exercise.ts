@@ -24,6 +24,8 @@ export interface ExerciseStimulus {
   fr?: string;
   /** Texte à prononcer par l'audio (TTS ou enregistrement). */
   audio_text?: string;
+  /** Pictogramme (exercice image → mot). */
+  emoji?: string;
   /** Faux pour l'écoute : le texte n'est pas montré avant la réponse (§8). */
   show_text_before_answer?: boolean;
 }
@@ -102,6 +104,7 @@ export const EASY_DURATION_MS: Record<ExerciseType, number> = {
   dictation: 7000,
   fill_blank: 6000,
   transformation: 8000,
+  stress: 3000,
 };
 
 function expectedDisplay(ex: ExerciseDef): string {
