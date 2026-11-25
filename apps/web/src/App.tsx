@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { api, apiUrl, ApiError, auth } from './api';
 import { cachedSession, cacheSession, clearLocal, currentCachedSessionId, flushOps, isNetworkError, kvGet, kvSet } from './offline';
 
@@ -11,9 +11,12 @@ function errorText(e: unknown): string {
   return (e as Error)?.message ?? String(e);
 }
 import { SessionPlayer } from './Session';
-import { DictionaryScreen } from './Dictionary';
 import { GoalCard, GoalPlan, useGoals } from './Goals';
-import { AssessmentCard, AssessmentPlayer } from './Assessment';
+import { AssessmentCard } from './Assessment';
+
+// Écrans secondaires chargés seulement à l'ouverture : démarrage plus léger sur le téléphone.
+const DictionaryScreen = lazy(() => import('./Dictionary').then((m) => ({ default: m.DictionaryScreen })));
+const AssessmentPlayer = lazy(() => import('./AssessmentPlayer').then((m) => ({ default: m.AssessmentPlayer })));
 import { LatinTrap, LetterBadge, RuWord } from './visual';
 import { SpeakIcon } from './Audio';
 
@@ -694,6 +697,7 @@ export function App() {
         )}
       </header>
       <main id="main" className="container">
+        <Suspense fallback={<p aria-busy="true">Chargement…</p>}>
         {inAssessment ? (
           <AssessmentPlayer onExit={() => { setInAssessment(false); setTab('home'); }} />
         ) : sessionId ? (
@@ -711,6 +715,7 @@ export function App() {
         ) : (
           <SettingsScreen profile={profile} onChange={loadProfile} onLogout={() => { setAuthed(false); setProfile(null); }} />
         )}
+        </Suspense>
       </main>
     </div>
   );
