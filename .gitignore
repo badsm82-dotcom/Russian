@@ -5,3 +5,4 @@ dist/
 coverage/
 apps/web/dist/
 release/
+apps/web/public/audio/index.json

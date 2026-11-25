@@ -633,6 +633,16 @@ function SettingsScreen({ profile, onChange, onLogout }: { profile: any; onChang
           <button type="button" className="btn btn-ghost" onClick={async () => { await flushOps().catch(() => undefined); await api.post('/v1/auth/logout').catch(() => undefined); await clearLocal(); auth.set(null); onLogout(); }}>Se déconnecter</button>
         </div>
         <details>
+          <summary>Crédits et licences</summary>
+          <ul className="small">
+            <li>Dictionnaire : OpenRussian (CC BY-SA 4.0).</li>
+            <li>Phrases réelles : Tatoeba (CC BY 2.0 FR), auteur indiqué sous chaque phrase.</li>
+            <li>Emprunts au français : Wiktionary (CC BY-SA 4.0).</li>
+            <li>Audio : synthèse Silero TTS (CC BY-NC-SA 4.0, usage personnel) ; voix natives Lingua Libre (CC BY-SA), locuteur indiqué à l’écoute.</li>
+            <li>Contenu pédagogique : en attente de relecture par un russophone.</li>
+          </ul>
+        </details>
+        <details>
           <summary>Supprimer mon compte</summary>
           <p className="small">Suppression définitive de toutes tes données. Tape <strong>SUPPRIMER</strong> pour confirmer.</p>
           <input className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-label="Confirmation" />

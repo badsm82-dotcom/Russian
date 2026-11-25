@@ -63,14 +63,23 @@ export interface AudioEntry {
   url: string;
 }
 
-/** Liste des fichiers, chargée dès l'ouverture : sur iPhone, play() doit partir sans attente après le toucher. */
+/** Index compact des fichiers (≈ 10 Ko compressés), chargé dès l'ouverture : sur iPhone, play() doit partir sans attente. */
 let manifestData: Record<string, AudioEntry[]> | null = null;
 export function preloadAudioManifest(): void {
   if (manifestData || typeof fetch === 'undefined') return;
-  fetch(`${import.meta.env.BASE_URL}audio/manifest.json`, { cache: 'no-cache' })
-    .then((r) => (r.ok ? r.json() : {}))
-    .then((d) => {
-      manifestData = d;
+  fetch(`${import.meta.env.BASE_URL}audio/index.json`, { cache: 'no-cache' })
+    .then((r) => (r.ok ? r.json() : { t: {}, n: {} }))
+    .then((d: { t: Record<string, string[]>; n: Record<string, [string, string, string]> }) => {
+      const out: Record<string, AudioEntry[]> = {};
+      for (const [k, files] of Object.entries(d.t ?? {})) {
+        out[k] = files.map((file) => {
+          const nat = d.n?.[file];
+          return nat
+            ? { file, source: 'lingualibre' as const, voice: file, author: nat[0], url: nat[1], license: nat[2] }
+            : { file, source: 'silero' as const, voice: file, author: 'Silero', url: 'https://github.com/snakers4/silero-models', license: 'CC BY-NC-SA 4.0' };
+        });
+      }
+      manifestData = out;
     })
     .catch(() => undefined);
 }

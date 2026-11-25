@@ -1,0 +1,22 @@
+// E2E audio : 🔊 lit un vrai fichier MP3 (audible même en mode silencieux sur iPhone), chargé seulement à la demande.
+import { createRequire } from 'node:module';
+const { chromium, devices } = createRequire(import.meta.url)('playwright');
+const BASE = process.env.BASE_URL ?? 'http://localhost:3000/';
+const b = await chromium.launch(); const ctx = await b.newContext({ ...devices['iPhone 13'] }); const page = await ctx.newPage();
+const mp3 = []; const errs = [];
+page.on('request', (r) => { if (r.url().endsWith('.mp3')) mp3.push(r.url()); });
+page.on('pageerror', (e) => errs.push(String(e)));
+await page.goto(BASE);
+await page.getByLabel('Adresse e-mail').fill(`snd-${Date.now()}@test.local`);
+await page.getByLabel('Mot de passe (8 caractères minimum)').fill('motdepasse-e2e');
+await page.getByRole('button', { name: 'Commencer' }).click();
+for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Suivant' }).click();
+await page.getByRole('button', { name: 'Commencer la première leçon' }).click();
+const beforeSession = mp3.length;
+await page.getByRole('button', { name: 'Commencer ma séance' }).click();
+await page.getByRole('button', { name: /Écouter/ }).first().click();
+await page.waitForTimeout(1500);
+const help = await page.getByText('Aucun son ?').isVisible().catch(() => false);
+await b.close();
+console.log(JSON.stringify({ preloaded_mp3: beforeSession, played: mp3, help_shown: help, errs }));
+if (beforeSession !== 0 || mp3.length === 0 || errs.length) process.exit(1);

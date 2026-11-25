@@ -46,7 +46,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   // Liste des fichiers audio : réseau d'abord (nouvelles voix), cache en secours.
-  if (url.pathname.endsWith('/audio/manifest.json')) {
+  if (url.pathname.endsWith('/audio/index.json')) {
     e.respondWith(
       fetch(req)
         .then((res) => {
