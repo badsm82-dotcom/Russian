@@ -100,7 +100,12 @@ def main():
 
     import torch
     torch.set_num_threads(4)
-    model, _ = torch.hub.load('snakers4/silero-models', 'silero_tts', language='ru', speaker='v4_ru', trust_repo=True)
+    # Chargement direct du modèle (sans torch.hub, qui interroge l'API GitHub et atteint vite sa limite).
+    model_file = '/tmp/silero_v4_ru.pt'
+    if not os.path.exists(model_file):
+        torch.hub.download_url_to_file('https://models.silero.ai/models/tts/ru/v4_ru.pt', model_file)
+    model = torch.package.PackageImporter(model_file).load_pickle('tts_models', 'model')
+    model.to(torch.device('cpu'))
     import soundfile as sf
 
     for n, item in enumerate(texts):
