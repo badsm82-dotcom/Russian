@@ -10,7 +10,7 @@ Produit les fichiers audio de Russian 365 (exécuté sur un runner GitHub Action
 Sortie : apps/web/public/audio/*.mp3 + apps/web/public/audio/manifest.json
 Usage : python3 scripts/collect_audio.py audio-texts.json
 """
-import hashlib, json, os, re, subprocess, sys, time, unicodedata, urllib.parse, urllib.request
+import hashlib, json, os, re, subprocess, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 
 OUT = 'apps/web/public/audio'
 UA = 'Russian365-personal-learning-app/1.0 (non-commercial; contact via GitHub repository)'
@@ -19,15 +19,33 @@ ACUTE = '́'
 VOWELS = 'аеёиоуыэюяАЕЁИОУЫЭЮЯ'
 
 
+def _open(url, timeout=60):
+    """Requête avec réessais polis (429/503 : on respecte Retry-After), pour ne pas surcharger les serveurs."""
+    for attempt in range(6):
+        req = urllib.request.Request(url, headers={'User-Agent': UA})
+        try:
+            return urllib.request.urlopen(req, timeout=timeout)
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 503) and attempt < 5:
+                wait = int(e.headers.get('Retry-After') or 0) or 5 * (attempt + 1)
+                print(f'  {e.code} sur {url[:80]}… attente {wait} s')
+                time.sleep(min(wait, 60))
+                continue
+            raise
+        except urllib.error.URLError:
+            if attempt < 5:
+                time.sleep(3 * (attempt + 1))
+                continue
+            raise
+
+
 def http_json(url):
-    req = urllib.request.Request(url, headers={'User-Agent': UA})
-    with urllib.request.urlopen(req, timeout=30) as r:
+    with _open(url, 30) as r:
         return json.load(r)
 
 
 def download(url, path):
-    req = urllib.request.Request(url, headers={'User-Agent': UA})
-    with urllib.request.urlopen(req, timeout=60) as r, open(path, 'wb') as f:
+    with _open(url, 120) as r, open(path, 'wb') as f:
         f.write(r.read())
 
 
@@ -103,7 +121,7 @@ def main():
     # Chargement direct du modèle (sans torch.hub, qui interroge l'API GitHub et atteint vite sa limite).
     model_file = '/tmp/silero_v4_ru.pt'
     if not os.path.exists(model_file):
-        torch.hub.download_url_to_file('https://models.silero.ai/models/tts/ru/v4_ru.pt', model_file)
+        download('https://models.silero.ai/models/tts/ru/v4_ru.pt', model_file)
     model = torch.package.PackageImporter(model_file).load_pickle('tts_models', 'model')
     model.to(torch.device('cpu'))
     import soundfile as sf
@@ -116,7 +134,13 @@ def main():
         print(f'[{n + 1}/{len(texts)}] {text}')
         if item['words'] == 1 and not any(e['source'] == 'lingualibre' for e in entries):
             word = unicodedata.normalize('NFC', text.replace(ACUTE, '')).strip(' ,.!?').lower()
-            for k, rec in enumerate(lingua_libre(word)):
+            try:
+                recs = lingua_libre(word)
+            except Exception as e:  # Commons indisponible : la synthèse prend le relais pour ce mot
+                print('  Lingua Libre indisponible pour', word, e)
+                recs = []
+            time.sleep(1.0)  # rythme poli envers l'API Wikimedia
+            for k, rec in enumerate(recs):
                 tmp = f'/tmp/ll_{h}_{k}.wav'
                 download(rec['url'], tmp)
                 fname = f'{h}-ll{k}.mp3'
@@ -134,6 +158,8 @@ def main():
             entries.append({'file': fname, 'source': 'silero', 'voice': voice, 'license': 'CC BY-NC-SA 4.0 (Silero TTS, usage non commercial)',
                             'author': 'Silero Team (synthèse)', 'url': 'https://github.com/snakers4/silero-models'})
         manifest[key] = entries
+        if n % 20 == 0:
+            json.dump(manifest, open(manifest_path, 'w'), ensure_ascii=False, indent=0, sort_keys=True)
     json.dump(manifest, open(manifest_path, 'w'), ensure_ascii=False, indent=0, sort_keys=True)
     ll = sum(1 for v in manifest.values() for e in v if e['source'] == 'lingualibre')
     print(f'{len(manifest)} textes, {ll} enregistrements natifs Lingua Libre.')
